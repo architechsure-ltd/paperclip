@@ -14121,6 +14121,7 @@ export function issueRoutes(
         commentClientRequestId,
         attachmentIds: commentAttachmentIds,
         reviewInteractionId: requestedReviewInteractionId,
+        reviewDecision,
         reviewRequest,
         reopen: reopenRequested,
         resume: resumeRequested,
@@ -14132,6 +14133,42 @@ export function issueRoutes(
         onBehalfOfUserId: _requestedOnBehalfOfUserId,
         ...updateFields
       } = req.body;
+      if (reviewDecision) {
+        const state = parseIssueExecutionState(existing.executionState);
+        if (
+          existing.status !== "in_review" ||
+          state?.status !== "pending" ||
+          state.currentStageId !== reviewDecision.currentStageId ||
+          state.lastDecisionId !== reviewDecision.lastDecisionId
+        ) {
+          throw conflict("This review decision is stale. Refresh the task and try again.", {
+            code: "issue_review_decision_stale",
+          });
+        }
+        if (
+          req.actor.type !== "board" ||
+          !req.actor.userId ||
+          state.currentParticipant?.type !== "user" ||
+          state.currentParticipant.userId !== req.actor.userId
+        ) {
+          throw forbidden("Only the current human review participant can decide this stage");
+        }
+        if (!commentBody?.trim()) {
+          throw unprocessable("A decision comment is required");
+        }
+        if (updateFields.status !== "done" && updateFields.status !== "in_progress") {
+          throw unprocessable("Review decisions must approve or request changes");
+        }
+        const allowedDecisionFields = new Set([
+          "status",
+          "comment",
+          "commentClientRequestId",
+          "reviewDecision",
+        ]);
+        if (Object.keys(req.body).some((key) => !allowedDecisionFields.has(key))) {
+          throw unprocessable("Review decisions cannot include unrelated task changes");
+        }
+      }
     if (req.body.visibility === "private" && !existing.projectId && updateFields.projectId === undefined) {
       const responsibleUserId = existing.responsibleUserId ?? (req.actor.type === "board"
         ? req.actor.userId ?? null
@@ -14193,7 +14230,7 @@ export function issueRoutes(
         (updateFields.status === "done" || updateFields.status === "cancelled");
       const mcpReviewSensitiveMutation = mcpParticipationChange;
       const reviewPolicySensitiveMutationRequested =
-        mcpReviewSensitiveMutation || req.body.reviewPolicy !== undefined ||
+        mcpReviewSensitiveMutation || reviewDecision !== undefined || req.body.reviewPolicy !== undefined ||
         updateFields.status === "done" ||
         updateFields.status === "cancelled";
       if (
@@ -14516,7 +14553,10 @@ export function issueRoutes(
           agentId: actor.agentId ?? null,
           userId: actor.actorType === "user" ? actor.actorId : null,
         },
-        allowBoardOverride: req.actor.type === "board" && req.actor.source !== "mcp_oauth",
+        allowBoardOverride:
+          reviewDecision === undefined &&
+          req.actor.type === "board" &&
+          req.actor.source !== "mcp_oauth",
         commentBody,
         reviewRequest: reviewRequest === undefined ? undefined : reviewRequest,
         monitorExplicitlyUpdated:
@@ -14931,6 +14971,21 @@ export function issueRoutes(
       ) => {
         const lockedExisting = await svc.getByIdForUpdate(id, tx);
         if (!lockedExisting) return false;
+        if (reviewDecision) {
+          const lockedState = parseIssueExecutionState(lockedExisting.executionState);
+          if (
+            lockedExisting.status !== "in_review" ||
+            lockedState?.status !== "pending" ||
+            lockedState.currentStageId !== reviewDecision.currentStageId ||
+            lockedState.lastDecisionId !== reviewDecision.lastDecisionId ||
+            lockedState.currentParticipant?.type !== "user" ||
+            lockedState.currentParticipant.userId !== req.actor.userId
+          ) {
+            throw conflict("This review decision is stale. Refresh the task and try again.", {
+              code: "issue_review_decision_stale",
+            });
+          }
+        }
         if (mcpReviewSensitiveMutation) await assertMcpTaskParticipation(tx ?? db, lockedExisting);
         const lockedPolicyChangeRequested =
           req.body.reviewPolicy !== undefined &&
@@ -15057,7 +15112,7 @@ export function issueRoutes(
               return null;
             const updated = await updateIssue(tx);
             if (!updated) return null;
-            if (commentAttachmentIds?.length || commentWithAdapterOverrides) {
+            if (decision || commentAttachmentIds?.length || commentWithAdapterOverrides) {
               // Adapter settings, reassignment, comment and upload binding commit together.
               // A failed comment or invalid receipt rolls back the issue update.
               transactionalComment = await svc.addComment(

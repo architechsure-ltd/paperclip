@@ -50,6 +50,10 @@ import {
 import { AttentionInteractionResolver } from "./AttentionInteractionResolver";
 import { DecisionResolver } from "./DecisionResolver";
 import { StalledReviewActions } from "./StalledReviewActions";
+import {
+  HumanReviewDecisionActions,
+  readHumanReviewDecisionMetadata,
+} from "./HumanReviewDecisionActions";
 import { readIssueReviewPolicyMetadata } from "../lib/review-policy";
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -803,8 +807,27 @@ function InlineResolver({
   }
 
   if (item.sourceKind === "review") {
-    // Inline only for stalled reviews (server sets inlineResolvable then); the
-    // subject IS the issue, so its id is the decision target.
+    const participantReview =
+      item.subject.metadata?.reviewAttentionState === "execution_participant"
+        ? readHumanReviewDecisionMetadata(item.subject.metadata)
+        : null;
+    if (participantReview) {
+      const reviewerName = participantReview.escalation?.reviewerAgentId
+        ? agentMap?.get(participantReview.escalation.reviewerAgentId)?.name
+        : null;
+      return (
+        <HumanReviewDecisionActions
+          issueId={item.subject.id}
+          companyId={companyId}
+          footerSlot={toggle}
+          decision={participantReview.decision}
+          escalation={participantReview.escalation
+            ? { ...participantReview.escalation, reviewerName }
+            : null}
+        />
+      );
+    }
+    // The remaining inline review kind is a genuinely stalled review.
     return (
       <StalledReviewActions
         issueId={item.subject.id}

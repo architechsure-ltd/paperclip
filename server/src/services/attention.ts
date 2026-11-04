@@ -1638,6 +1638,8 @@ export function attentionService(db: Db, serviceOptions: AttentionServiceOptions
         const state = parseIssueExecutionState(review.executionState);
         const currentParticipant = state?.status === "pending" ? state.currentParticipant : null;
         const hasHumanParticipant = currentParticipant?.type === "user";
+        const currentUserIsParticipant =
+          currentParticipant?.type === "user" && currentParticipant.userId === options.userId;
         const pendingApprovalId = pendingApprovalByIssueId.get(review.id) ?? null;
         const reviewAttention = reviewAttentionByIssueId.get(review.id);
         const stalled = reviewAttention?.state === "stalled";
@@ -1646,16 +1648,28 @@ export function attentionService(db: Db, serviceOptions: AttentionServiceOptions
         const issue = reviewIssueMap.get(review.id);
         if (!issue) continue;
         const dedupKey = `review:${review.id}`;
-        // A stalled review carries no interaction/approval/monitor to open, so
-        // it is resolved in-row with the three review verbs (PAP-16080 §4.4).
-        // Covered reviews still deep-link — their real action lives elsewhere
-        // (the pending interaction/approval card, a monitor, a live run).
+        // Stalled reviews use the recovery actions. A covered review whose
+        // current participant is this user uses the execution-policy decision
+        // actions directly; other covered reviews continue to deep-link.
         const reviewSubject = issueSubject(prefix, issue);
+        const inlineReviewMetadata = stalled
+          ? { reviewAttentionState: "stalled" }
+          : currentUserIsParticipant
+            ? {
+                reviewAttentionState: "execution_participant",
+                executionParticipantUserId: currentParticipant.userId,
+                reviewDecision: {
+                  currentStageId: state?.currentStageId,
+                  lastDecisionId: state?.lastDecisionId ?? null,
+                },
+                reviewEscalation: state?.reviewEscalation ?? null,
+              }
+            : null;
         add(createItem({
           companyId,
           sourceKind: "review",
-          subject: stalled
-            ? { ...reviewSubject, metadata: { ...reviewSubject.metadata, reviewAttentionState: "stalled" } }
+          subject: inlineReviewMetadata
+            ? { ...reviewSubject, metadata: { ...reviewSubject.metadata, ...inlineReviewMetadata } }
             : reviewSubject,
           whyNow: stalled
             ? "Issue is in review without a maintained reviewer, interaction, approval, monitor, run, wake, or recovery path."
@@ -1673,7 +1687,7 @@ export function attentionService(db: Db, serviceOptions: AttentionServiceOptions
                 { id: "approve", label: "Approve", description: "Approve the review and advance the issue." },
                 { id: "request_changes", label: "Request changes", description: "Return the issue to the assignee with changes requested." },
               ),
-          inlineResolvable: stalled,
+          inlineResolvable: stalled || currentUserIsParticipant,
           entryRule: stalled
             ? "issues.status = 'in_review' and reviewAttention.state = 'stalled'."
             : "issues.status = 'in_review' and human reviewer, user assignee, or linked pending approval exists.",
@@ -1685,7 +1699,10 @@ export function attentionService(db: Db, serviceOptions: AttentionServiceOptions
           updatedAt: toIso(review.updatedAt),
           relatedIssue: null,
           ...issueContext(issue),
-          detail: genericDetail(review.title, issueImages(reviewImageMap, review.id)),
+          detail: genericDetail(
+            state?.reviewEscalation?.reason ?? review.title,
+            issueImages(reviewImageMap, review.id),
+          ),
         }));
       }
 

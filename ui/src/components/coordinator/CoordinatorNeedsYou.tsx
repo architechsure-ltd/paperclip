@@ -18,6 +18,7 @@ import { coordinatorAttentionQueryKey, COORDINATOR_RECENT_DECISION_MS, recentDec
 import { attentionDetailLine, isInlineResolvable } from "@/lib/attention";
 import { AttentionInteractionResolver } from "@/components/AttentionInteractionResolver";
 import { StalledReviewActions } from "@/components/StalledReviewActions";
+import { HumanReviewDecisionActions, readHumanReviewDecisionMetadata } from "@/components/HumanReviewDecisionActions";
 import { DecisionResolver } from "@/components/DecisionResolver";
 import { PROPERTIES_PANE_HEADER_SLOT_ID } from "@/components/PropertiesPanel";
 import { SidePanelTab } from "@/components/side-panel";
@@ -215,6 +216,9 @@ export function CoordinatorNeedsYou() {
       const interaction = item.sourceKind === "issue_thread_interaction" && isInlineResolvable(item) && issueId;
       const decision = item.sourceKind === "decision" && isInlineResolvable(item);
       const stalledReview = item.sourceKind === "review" && item.subject.kind === "issue" && isInlineResolvable(item) && item.subject.metadata?.reviewAttentionState === "stalled";
+      const participantReview = item.sourceKind === "review" && item.subject.kind === "issue" && isInlineResolvable(item) && item.subject.metadata?.reviewAttentionState === "execution_participant"
+        ? readHumanReviewDecisionMetadata(item.subject.metadata)
+        : null;
       const taskRef = item.relatedIssue ?? (item.subject.kind === "issue" ? item.subject : null);
       const taskLink = taskRef?.href ? <button type="button" onClick={() => { if (taskRef.href) navigate(taskRef.href); }} className="flex max-w-full items-center gap-2 text-left text-sm text-muted-foreground hover:text-foreground"><span className="shrink-0">{taskRef.identifier ?? "Open task"}</span><span className="truncate">{taskRef.title}</span><ArrowUpRight className="size-4 shrink-0" /></button> : null;
       const id = `${item.sourceKind}:${item.subject.id}`;
@@ -229,9 +233,10 @@ export function CoordinatorNeedsYou() {
           onResolved(item);
         }} />
           : decision ? <DecisionResolver companyId={selectedCompanyId} decisionId={item.subject.id} originIssue={item.relatedIssue} agentMap={agentMap} onResolved={() => onResolved(item)} />
+          : participantReview ? <><h2 className="text-lg font-medium">Review this task</h2><p className="text-sm">Approve the current stage or return it to Engineering with a decision comment.</p><HumanReviewDecisionActions footerSlot={taskLink} issueId={item.subject.id} companyId={selectedCompanyId} decision={participantReview.decision} escalation={participantReview.escalation ? { ...participantReview.escalation, reviewerName: participantReview.escalation.reviewerAgentId ? agentMap.get(participantReview.escalation.reviewerAgentId)?.name : null } : null} onResolved={() => { void feed.refetch(); void recent.refetch(); }} /></>
           : stalledReview ? <><h2 className="text-lg font-medium">Choose how this task continues</h2><p className="text-sm">This task is still in review with no active reviewer or continuation. Return it to work, request changes, or mark the task done.</p><StalledReviewActions footerSlot={taskLink} issueId={item.subject.id} companyId={selectedCompanyId} reviewPolicy={readIssueReviewPolicyMetadata(item.subject.metadata)} approveLabel="Mark task done" onResolved={() => { void feed.refetch(); void recent.refetch(); }} /></>
           : <><h2 className="text-lg font-medium">{item.subject.title ?? item.whyNow}</h2><p className="text-sm">{attentionDetailLine(item) ?? item.whyNow}</p><Button disabled={!item.subject.href} onClick={() => { if (item.subject.href) navigate(item.subject.href); }}>Open to review<ArrowUpRight className="size-4" /></Button></>}
-        {!interaction && !stalledReview ? taskLink : null}
+        {!interaction && !participantReview && !stalledReview ? taskLink : null}
       </article>}
       </CoordinatorTaskMotion>
       </motion.div>;

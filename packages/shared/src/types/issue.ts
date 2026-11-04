@@ -783,6 +783,13 @@ export interface IssueReviewRequest {
   instructions: string;
 }
 
+export interface IssueReviewEscalation {
+  version: 1;
+  reviewerAgentId: string;
+  responsibleUserId: string;
+  reason: string;
+}
+
 export interface IssueExecutionState {
   status: IssueExecutionStateStatus;
   currentStageId: string | null;
@@ -797,6 +804,8 @@ export interface IssueExecutionState {
   monitor?: IssueExecutionMonitorState | null;
   /** Consecutive agent-initiated changes-requested rounds on the current stage. */
   changesRequestedCount?: number;
+  /** Durable context shown to the owner when automated review rounds are exhausted. */
+  reviewEscalation?: IssueReviewEscalation | null;
 }
 
 export interface IssueExecutionDecision {

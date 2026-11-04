@@ -265,12 +265,12 @@ describe("AttentionQueueRow", () => {
     }
   });
 
-  it("deep-links a covered review instead of inlining", () => {
+  it("inlines an active human participant review with only the stage decision actions", () => {
     const el = render(
       <AttentionQueueRow
         item={buildItem({
           sourceKind: "review" as AttentionSourceKind,
-          inlineResolvable: false,
+          inlineResolvable: true,
           subject: {
             kind: "issue",
             id: "issue-1",
@@ -279,7 +279,14 @@ describe("AttentionQueueRow", () => {
             identifier: null,
             status: "in_review",
             href: "/PAP/issues/PAP-1",
-            metadata: {},
+            metadata: {
+              reviewAttentionState: "execution_participant",
+              executionParticipantUserId: "board-user",
+              reviewDecision: {
+                currentStageId: "11111111-1111-4111-8111-111111111111",
+                lastDecisionId: null,
+              },
+            },
           },
         })}
         companyId="c1"
@@ -288,7 +295,9 @@ describe("AttentionQueueRow", () => {
         onDismiss={noop}
       />,
     );
-    expect(el.textContent).toContain("Open");
+    expect(el.textContent).not.toContain("Open");
+    expect(el.textContent).toContain("Approve");
+    expect(el.textContent).toContain("Request changes");
     expect(el.textContent).not.toContain("Send back to work");
   });
 

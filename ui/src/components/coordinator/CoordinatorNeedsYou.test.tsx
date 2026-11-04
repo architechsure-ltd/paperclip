@@ -28,10 +28,19 @@ vi.mock("motion/react", () => ({
 }));
 vi.mock("@/components/PropertiesPanel", () => ({ PROPERTIES_PANE_HEADER_SLOT_ID: "test-sidebar" }));
 vi.mock("@/components/DecisionResolver", () => ({ DecisionResolver: () => null }));
-vi.mock("@/components/StalledReviewActions", () => ({ StalledReviewActions: ({ issueId, approveLabel, reviewPolicy, onResolved }: { issueId: string; approveLabel: string; reviewPolicy: string; onResolved: () => void }) => <button data-review-policy={reviewPolicy} onClick={() => {
+vi.mock("@/components/StalledReviewActions", () => ({ StalledReviewActions: ({ issueId, approveLabel, reviewPolicy, resolutionKind, onResolved }: { issueId: string; approveLabel: string; reviewPolicy: string; resolutionKind?: string; onResolved: () => void }) => <button data-review-policy={reviewPolicy} data-resolution-kind={resolutionKind} onClick={() => {
   fixture.pending = fixture.pending.filter((item) => item.subject.id !== issueId);
   onResolved();
 }}>{approveLabel}</button> }));
+vi.mock("@/components/HumanReviewDecisionActions", () => ({
+  readHumanReviewDecisionMetadata: (metadata: Record<string, unknown>) => ({
+    decision: metadata.reviewDecision,
+    escalation: null,
+  }),
+  HumanReviewDecisionActions: () => (
+    <button data-resolution-kind="execution_participant">Approve</button>
+  ),
+}));
 vi.mock("@/components/AttentionInteractionResolver", () => ({ AttentionInteractionResolver: ({ issueId, interactionId, footerSlot, onResolved }: { issueId: string; interactionId: string; footerSlot?: ReactNode; onResolved: (interaction: { status: string }) => void }) => <>{footerSlot}<button data-issue-id={issueId} onClick={() => {
   if (fixture.partial) { onResolved({ status: "pending" }); return; }
   fixture.pending = fixture.pending.filter((item) => item.subject.id !== interactionId);
@@ -216,6 +225,18 @@ describe("Coordinator Needs You", () => {
     expect(container.querySelectorAll("article")).toHaveLength(0);
     expect(container.textContent).toContain("You're caught up.");
     expect(container.querySelectorAll(".coordinator-decision-receipt")).toHaveLength(1);
+  });
+  it("renders the active participant review with the same inline decision component", async () => {
+    fixture.pending = [{ id: "review:task-2", sourceKind: "review", inlineResolvable: true,
+      subject: { id: "task-2", kind: "issue", title: "Architecture review", identifier: "PAP-2", href: "/PAP/issues/PAP-2", metadata: { reviewAttentionState: "execution_participant", executionParticipantUserId: "reviewer", reviewDecision: { currentStageId: "11111111-1111-4111-8111-111111111111", lastDecisionId: null } } },
+      activityAt: new Date().toISOString() } as unknown as AttentionItem];
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    await act(async () => root.render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[fixture.url]}><CoordinatorNeedsYou /><Location /></MemoryRouter></QueryClientProvider>));
+    await flush();
+    expect(container.textContent).toContain("Review this task");
+    expect(container.textContent).not.toContain("Open to review");
+    expect(container.querySelector('[data-resolution-kind="execution_participant"]')).not.toBeNull();
+    client.clear();
   });
   it("retains all three decisions as receipts, including an answered question, and opens history only on demand", async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });

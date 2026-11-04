@@ -899,6 +899,18 @@ function applyIssueExecutionStageTransition(input: TransitionInput): TransitionR
               reviewRequest: effectiveReviewRequest,
               changesRequestedCount: nextRounds,
             });
+            if (!actor?.agentId) {
+              throw unprocessable("The review escalation is missing its reviewer");
+            }
+            patch.executionState = {
+              ...(patch.executionState as IssueExecutionState),
+              reviewEscalation: {
+                version: 1,
+                reviewerAgentId: actor.agentId,
+                responsibleUserId: escalationUserId,
+                reason: input.commentBody.trim(),
+              },
+            };
             return {
               patch,
               decision,

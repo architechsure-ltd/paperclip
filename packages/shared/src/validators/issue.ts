@@ -527,6 +527,15 @@ export const issueReviewRequestSchema = z
   })
   .strict();
 
+export const issueReviewEscalationSchema = z
+  .object({
+    version: z.literal(1),
+    reviewerAgentId: z.string().guid(),
+    responsibleUserId: z.string().trim().min(1),
+    reason: z.string().trim().min(1).max(20000),
+  })
+  .strict();
+
 export const issueExecutionStateSchema = z.object({
   status: z.enum(ISSUE_EXECUTION_STATE_STATUSES),
   currentStageId: z.string().guid().nullable(),
@@ -540,6 +549,7 @@ export const issueExecutionStateSchema = z.object({
   lastDecisionOutcome: z.enum(ISSUE_EXECUTION_DECISION_OUTCOMES).nullable(),
   monitor: issueExecutionMonitorStateSchema.optional().nullable(),
   changesRequestedCount: z.number().int().nonnegative().optional().default(0),
+  reviewEscalation: issueReviewEscalationSchema.optional().nullable().default(null),
 });
 
 export const issueRecoveryActionReadModelSchema = z.object({
@@ -960,6 +970,13 @@ export const updateIssueSchema = objectWithoutDefaults(
     attachmentIds: issueCommentAttachmentIdsSchema.optional(),
     onBehalfOfUserId: z.string().trim().min(1).optional().nullable(),
     reviewInteractionId: z.string().guid().optional(),
+    reviewDecision: z
+      .object({
+        currentStageId: z.string().guid(),
+        lastDecisionId: z.string().guid().nullable(),
+      })
+      .strict()
+      .optional(),
     reviewRequest: issueReviewRequestSchema.optional().nullable(),
     reopen: z.boolean().optional(),
     resume: z.boolean().optional(),

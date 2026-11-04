@@ -3016,7 +3016,7 @@ describe("issue comment reopen routes", () => {
     expect(mockHeartbeatService.cancelRun).not.toHaveBeenCalled();
   });
 
-  it("writes decision ids into executionState and inserts the decision inside the transaction", async () => {
+  it("atomically records an authenticated human approval, its decision, and its required comment", async () => {
     const policy = await normalizePolicy({
       stages: [
         {
@@ -3062,7 +3062,14 @@ describe("issue comment reopen routes", () => {
 
     const res = await request(await installActor(createApp()))
       .patch("/api/issues/11111111-1111-4111-8111-111111111111")
-      .send({ status: "done", comment: "Approved for ship" });
+      .send({
+        status: "done",
+        comment: "Approved for ship",
+        reviewDecision: {
+          currentStageId: policy.stages[0].id,
+          lastDecisionId: null,
+        },
+      });
 
     expect(res.status).toBe(200);
     expect(mockDb.transaction).toHaveBeenCalledTimes(1);
@@ -3092,6 +3099,76 @@ describe("issue comment reopen routes", () => {
         body: "Approved for ship",
       }),
     );
+    expect(mockIssueService.addComment).toHaveBeenCalledWith(
+      issue.id,
+      "Approved for ship",
+      expect.objectContaining({ userId: "local-board" }),
+      expect.objectContaining({ mirrorToSlack: true }),
+      mockTx,
+    );
+  });
+
+  it("rejects stale and unauthorised human stage decisions before mutating the issue", async () => {
+    const policy = await normalizePolicy({
+      stages: [{
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        type: "review",
+        participants: [{ type: "user", userId: "local-board" }],
+      }],
+    });
+    const issue = {
+      ...makeIssue("in_review"),
+      assigneeAgentId: null,
+      assigneeUserId: "local-board",
+      executionPolicy: policy,
+      executionState: {
+        status: "pending",
+        currentStageId: policy.stages[0].id,
+        currentStageIndex: 0,
+        currentStageType: "review",
+        currentParticipant: { type: "user", userId: "local-board" },
+        returnAssignee: { type: "agent", agentId: "22222222-2222-4222-8222-222222222222" },
+        completedStageIds: [],
+        lastDecisionId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        lastDecisionOutcome: "changes_requested",
+      },
+    };
+    mockIssueService.getById.mockResolvedValue(issue);
+
+    const stale = await request(await installActor(createApp()))
+      .patch(`/api/issues/${issue.id}`)
+      .send({
+        status: "done",
+        comment: "Approve old snapshot",
+        reviewDecision: { currentStageId: policy.stages[0].id, lastDecisionId: null },
+      });
+
+    expect(stale.status).toBe(409);
+    expect(stale.body).toMatchObject({
+      error: expect.stringContaining("stale"),
+      details: { code: "issue_review_decision_stale" },
+    });
+    expect(mockIssueService.update).not.toHaveBeenCalled();
+
+    const unauthorised = await request(await installActor(createApp(), {
+      type: "board",
+      userId: "another-user",
+      companyIds: ["company-1"],
+      source: "local_implicit",
+      isInstanceAdmin: false,
+    }))
+      .patch(`/api/issues/${issue.id}`)
+      .send({
+        status: "in_progress",
+        comment: "I should not decide this",
+        reviewDecision: {
+          currentStageId: policy.stages[0].id,
+          lastDecisionId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        },
+      });
+
+    expect(unauthorised.status).toBe(403);
+    expect(mockIssueService.update).not.toHaveBeenCalled();
   });
 
   it("auto-approves a reviewer comment with the APPROVED review marker", async () => {

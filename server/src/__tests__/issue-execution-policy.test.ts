@@ -2133,6 +2133,12 @@ describe("review round circuit breaker", () => {
       currentStageId: reviewStageId,
       currentParticipant: { type: "user", userId: boardUserId },
       changesRequestedCount: 3,
+      reviewEscalation: {
+        version: 1,
+        reviewerAgentId: qaAgentId,
+        responsibleUserId: boardUserId,
+        reason: "Round three feedback — still not converging",
+      },
     });
   });
 
@@ -2319,6 +2325,12 @@ describe("review round circuit breaker", () => {
       status: "pending",
       currentParticipant: { type: "user", userId: boardUserId },
       changesRequestedCount: 1,
+      reviewEscalation: {
+        version: 1,
+        reviewerAgentId: qaAgentId,
+        responsibleUserId: boardUserId,
+        reason: "First and only agent round",
+      },
     });
   });
 });

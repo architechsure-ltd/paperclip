@@ -48,6 +48,7 @@ import { getRecentProjectIds } from "../../lib/recent-projects";
 import { orderItemsBySelectedAndRecent } from "../../lib/recent-selections";
 import { formatAssigneeUserLabel, formatUserLabel } from "../../lib/assignees";
 import { buildExecutionPolicy, stageParticipantValues } from "../../lib/issue-execution-policy";
+import { HumanReviewDecisionActions } from "../HumanReviewDecisionActions";
 import { useExecutionPolicy } from "../../hooks/useExecutionPolicy";
 import {
   areAutomaticMonitorChecksPaused,
@@ -1092,6 +1093,17 @@ export function IssueProperties({
     }
     return `${stageLabel} pending${participantLabel ? ` with ${participantLabel}` : ""}`;
   })();
+  const currentUserReviewDecision =
+    issue.status === "in_review" &&
+    issue.executionState?.status === "pending" &&
+    issue.executionState.currentStageId &&
+    issue.executionState.currentParticipant?.type === "user" &&
+    issue.executionState.currentParticipant.userId === currentUserId
+      ? {
+          currentStageId: issue.executionState.currentStageId,
+          lastDecisionId: issue.executionState.lastDecisionId,
+        }
+      : null;
   useEffect(() => {
     setMonitorAtInput(toDateTimeLocalValue(executionPolicy?.monitor?.nextCheckAt));
     setMonitorNotesInput(executionPolicy?.monitor?.notes ?? "");
@@ -2682,6 +2694,24 @@ export function IssueProperties({
             <span className="text-sm truncate min-w-0" title={currentExecutionLabel}>{currentExecutionLabel}</span>
           </PropertyRow>
         )}
+
+        {currentUserReviewDecision && companyId ? (
+          <PropertyRow label="Decision" wrap>
+            <HumanReviewDecisionActions
+              issueId={issue.id}
+              companyId={companyId}
+              decision={currentUserReviewDecision}
+              escalation={issue.executionState?.reviewEscalation
+                ? {
+                    reviewerName: agentName(issue.executionState.reviewEscalation.reviewerAgentId),
+                    reviewerAgentId: issue.executionState.reviewEscalation.reviewerAgentId,
+                    reason: issue.executionState.reviewEscalation.reason,
+                  }
+                : null}
+              className="w-full"
+            />
+          </PropertyRow>
+        ) : null}
 
         {showScheduledRetryRow && scheduledRetry?.scheduledRetryReason === "workspace_busy" ? (
           <PropertyRow label="Workspace">

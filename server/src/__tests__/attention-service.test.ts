@@ -757,6 +757,21 @@ describeEmbeddedPostgres("attention service", () => {
         expect.objectContaining({ id: "choose_review_path", label: "Choose review path" }),
       ]),
     });
+    expect(feed.items.find((item) =>
+      item.sourceKind === "review" && item.subject.title === "Human review"
+    )).toMatchObject({
+      inlineResolvable: true,
+      subject: expect.objectContaining({
+        metadata: expect.objectContaining({
+          reviewAttentionState: "execution_participant",
+          executionParticipantUserId: "board-user",
+        }),
+      }),
+      decisionVerbs: expect.arrayContaining([
+        expect.objectContaining({ id: "approve", label: "Approve" }),
+        expect.objectContaining({ id: "request_changes", label: "Request changes" }),
+      ]),
+    });
     expect(feed.items.find((item) => item.sourceKind === "failed_run")?.detail).toMatchObject({
       kind: "failed_run",
       agentName: "Worker",
