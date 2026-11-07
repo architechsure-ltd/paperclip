@@ -1,5 +1,5 @@
 import { applyIssueExecutionPolicyTransition, normalizeIssueExecutionPolicy } from "../services/issue-execution-policy.js";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { mkdtemp, writeFile, chmod, rm } from "node:fs/promises";
@@ -8,7 +8,7 @@ import path from "node:path";
 import express from "express";
 import { and, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { activityLog, agentWakeupRequests, agents, authUsers, companies, companyMemberships, createDb, heartbeatRuns, issueRelations, issues, issueRecoveryActions } from "@paperclipai/db";
+import { activityLog, agentApiKeys, agentWakeupRequests, agents, authUsers, companies, companyMemberships, createDb, heartbeatRuns, issueRelations, issues, issueRecoveryActions } from "@paperclipai/db";
 import { actorMiddleware } from "../middleware/auth.js";
 import { errorHandler } from "../middleware/error-handler.js";
 import { issueRoutes } from "../routes/issues.js";
@@ -18,7 +18,7 @@ import { startEmbeddedPostgresTestDatabase } from "./helpers/embedded-postgres.j
 
 // Real child processes and authenticated HTTP mutations; model output is deterministic.
 const providerScript = String.raw`
-const headers = { authorization: 'Bearer ' + process.env.PAPERCLIP_API_KEY, 'content-type': 'application/json', 'x-paperclip-run-id': process.env.PAPERCLIP_RUN_ID };
+const headers = { authorization: 'Bearer ' + (process.env.REVIEW_TEST_KEY || process.env.PAPERCLIP_API_KEY), 'content-type': 'application/json', 'x-paperclip-run-id': process.env.PAPERCLIP_RUN_ID };
 async function main() {
   const base = process.env.REVIEW_TEST_API;
   if (process.env.PAPERCLIP_TASK_ID && process.env.PAPERCLIP_TASK_ID !== process.env.REVIEW_TEST_ISSUE) {
@@ -40,7 +40,7 @@ async function main() {
 main().catch(error => { console.error(error); process.exitCode = 1; });
 `;
 
-describe("legacy review handover assembled journey", () => {
+describe.each(["agent_jwt", "agent_key"] as const)("legacy review handover assembled journey (%s)", source => {
   let temporary: Awaited<ReturnType<typeof startEmbeddedPostgresTestDatabase>>, db: ReturnType<typeof createDb>;
   let heartbeat: ReturnType<typeof heartbeatService>, server: Server, dir: string;
   const releases = new Map<string, () => void>();
@@ -71,6 +71,11 @@ describe("legacy review handover assembled journey", () => {
     await db.insert(companyMemberships).values({ companyId, principalType: "user", principalId: owner, membershipRole: "operator", status: "active" });
     await db.insert(agents).values([{ id: engineer, companyId, name: "Hermes Engineer", role: "ceo", adapterType: "hermes", status: "idle" },
       { id: reviewer, companyId, name: "Codex Technical Lead", role: "engineer", reportsTo: engineer, adapterType: "process", status: "idle" }]);
+    const engineerKey = `fixture-${randomUUID()}`, reviewerKey = `fixture-${randomUUID()}`;
+    for (const [agentId, key] of [[engineer, engineerKey], [reviewer, reviewerKey]]) {
+      await db.insert(agentApiKeys).values({ companyId, agentId, name: "Fixture key", responsibleUserId: owner,
+        keyHash: createHash("sha256").update(key).digest("hex") });
+    }
     await db.insert(issues).values([{ id: parentId, companyId, title: "Parent delivery", status: "blocked", assigneeAgentId: engineer },
       { id: taskId, companyId, parentId, title: "Implementation", status: "todo", assigneeAgentId: engineer,
         executionPolicy: { mode: "normal", commentRequired: true, stages: [{ id: "11111111-1111-4111-8111-111111111111", type: "review", participants: [{ type: "agent", agentId: reviewer }] },
@@ -89,7 +94,27 @@ describe("legacy review handover assembled journey", () => {
     for (const [agentId, role] of [[engineer, "engineer"], [reviewer, "reviewer"]] as const) {
       await db.update(agents).set({ adapterConfig: { command: role === "engineer" ? hermesCommand : process.execPath,
         ...(role === "engineer" ? { hermesCommand } : { args: ["-e", providerScript] }), cwd: dir, timeoutSec: 60,
-        env: { REVIEW_TEST_API: api, REVIEW_TEST_ISSUE: taskId, REVIEW_TEST_ROLE: role } } }).where(eq(agents.id, agentId));
+        env: { REVIEW_TEST_API: api, REVIEW_TEST_ISSUE: taskId, REVIEW_TEST_ROLE: role,
+          ...(source === "agent_key" ? { REVIEW_TEST_KEY: role === "engineer" ? engineerKey : reviewerKey } : {}) } } }).where(eq(agents.id, agentId));
+    }
+    const authorizationFixtureRunIds: string[] = [];
+    if (source === "agent_key") {
+      const [otherRun] = await db.insert(heartbeatRuns).values({ companyId, agentId: reviewer,
+        status: "succeeded", finishedAt: new Date(), contextSnapshot: { issueId: taskId } }).returning();
+      authorizationFixtureRunIds.push(otherRun.id);
+      for (const headers of [
+        { authorization: `Bearer ${engineerKey}` },
+        { authorization: `Bearer ${engineerKey}`, "x-paperclip-run-id": randomUUID() },
+        { authorization: `Bearer ${engineerKey}`, "x-paperclip-run-id": otherRun.id },
+        { authorization: "Bearer invalid-fixture-key", "x-paperclip-run-id": otherRun.id },
+      ]) {
+        const response = await fetch(`${api}/api/issues/${taskId}`, { method: "PATCH",
+          headers: { ...headers, "content-type": "application/json" },
+          body: JSON.stringify({ status: "done", comment: "Unauthorized handover attempt." }) });
+        expect(response.status, JSON.stringify(await response.json())).toBeGreaterThanOrEqual(400);
+        expect((await db.select().from(issues).where(eq(issues.id, taskId)))[0]).toMatchObject({ status: "todo", executionState: null });
+        expect(await db.select().from(agentWakeupRequests).where(eq(agentWakeupRequests.companyId, companyId))).toHaveLength(0);
+      }
     }
     await heartbeat.wakeup(engineer, { source: "assignment", reason: "issue_assigned", contextSnapshot: { issueId: taskId } });
     const waitFor = async (condition: () => boolean | Promise<boolean>) => { const deadline = Date.now() + 15_000;
@@ -119,7 +144,14 @@ describe("legacy review handover assembled journey", () => {
     const readiness = await (await import("../services/issues.js")).issueService(db).getDependencyReadiness(parentId);
     expect(readiness.unresolvedBlockerCount).toBe(0);
     expect(await db.select().from(issueRecoveryActions).where(eq(issueRecoveryActions.companyId, companyId))).toHaveLength(0);
-    expect(await db.select().from(heartbeatRuns).where(and(eq(heartbeatRuns.companyId, companyId), eq(heartbeatRuns.issueId, taskId)))).toHaveLength(4);
+    // The scope trigger fills issueId from contextSnapshot for the key-auth
+    // rejection fixture too. Account for that row separately from the four executions.
+    const taskRuns = await db.select().from(heartbeatRuns).where(and(eq(heartbeatRuns.companyId, companyId), eq(heartbeatRuns.issueId, taskId)));
+    expect(submitted).toHaveLength(4);
+    expect(taskRuns).toHaveLength(4 + authorizationFixtureRunIds.length);
+    expect(taskRuns.map(run => run.id).sort()).toEqual([
+      ...submitted.map(run => run.runId), ...authorizationFixtureRunIds,
+    ].sort());
     // Historical resolved no-replay holds use the board API and keep the review intact.
     const heldId = randomUUID();
     const policy = normalizeIssueExecutionPolicy(pending.executionPolicy);

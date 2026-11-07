@@ -4627,7 +4627,17 @@ Focused regression commands:
 pnpm exec vitest run server/src/services/legacy-execution-recovery.test.ts server/src/__tests__/execution-stage-wake.test.ts server/src/__tests__/legacy-review-handover.integration.test.ts server/src/__tests__/issue-execution-policy-routes.test.ts
 ```
 
-The assembled journey uses the Hermes adapter with a deterministic CLI fixture
+The policy-controlled self-handover exemption accepts both run JWTs and authenticated
+agent keys. Ordinary human reassignment retains its existing run-JWT-only exemption.
+An agent-key run header is not authority by itself. The normal mutation path
+validates the persisted run against the authenticated agent and company first.
+The exemption then requires the exact active legacy run, task context and current
+assignee. A mismatch retains the normal cancellation path. This does not change
+cancellation acknowledgement, resource release, durable wake admission or recovery.
+
+The assembled journey tests both credential types. It rejects invalid credentials,
+a missing run header, an unknown run and another agent's run before any mutation.
+It uses the Hermes adapter with a deterministic CLI fixture
 and a process fixture for the Lead. It proves authenticated HTTP handovers,
 provider-process ordering, changes requested, owner approval and dependency
 release. It does not qualify live Hermes or Codex model service behavior.

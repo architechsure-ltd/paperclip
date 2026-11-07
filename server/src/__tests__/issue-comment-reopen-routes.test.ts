@@ -1,6 +1,7 @@
 import express from "express";
 import request from "supertest";
 import { getTableName } from "drizzle-orm";
+import { agentWakeupRequests } from "@paperclipai/db";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpError, unprocessable } from "../errors.js";
 import { normalizeIssueExecutionPolicy } from "../services/issue-execution-policy.js";
@@ -458,7 +459,7 @@ describe("issue comment reopen routes", () => {
       if (name === "case_handoffs") return { where: vi.fn(() => ({
         orderBy: vi.fn(() => ({ limit: vi.fn(async () => []) })),
       })) };
-      if (name === "heartbeat_runs") return { where: vi.fn(() => {
+      if (name === "heartbeat_runs" || name === "agent_wakeup_requests") return { where: vi.fn(() => {
         const query = mockDbSelectWhere();
         return { ...query, limit: vi.fn((count: number) => Promise.resolve(query).then(rows => rows.slice(0, count))) };
       }) };
@@ -3905,7 +3906,7 @@ describe("issue comment reopen routes", () => {
     expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
   });
 
-  it("coerces executor handoff patches into workflow-controlled review wakes", async () => {
+  it("coerces executor handoff patches into retained workflow-controlled review wakes", async () => {
     const policy = await normalizePolicy({
       stages: [
         {
@@ -3952,7 +3953,7 @@ describe("issue comment reopen routes", () => {
         },
       });
 
-    expect(res.status).toBe(200);
+    expect(res.status, JSON.stringify(res.body)).toBe(200);
     expect(res.body.assigneeAgentId).toBe(
       "33333333-3333-4333-8333-333333333333",
     );
@@ -3973,29 +3974,35 @@ describe("issue comment reopen routes", () => {
           "Please verify the fix against the reproduction steps and note any residual risk.",
       },
     });
-    await waitForWakeup(() =>
-      expect(mockHeartbeatService.wakeup).toHaveBeenCalledWith(
-        "33333333-3333-4333-8333-333333333333",
-        expect.objectContaining({
-          reason: "execution_review_requested",
-          payload: expect.objectContaining({
-            issueId: "11111111-1111-4111-8111-111111111111",
-            executionStage: expect.objectContaining({
-              wakeRole: "reviewer",
-              stageType: "review",
-              reviewRequest: {
-                instructions:
-                  "Please verify the fix against the reproduction steps and note any residual risk.",
-              },
-              allowedActions: ["approve", "request_changes"],
-            }),
+    expect(mockTxInsert).toHaveBeenCalledWith(agentWakeupRequests);
+    expect(mockTxInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentId: "33333333-3333-4333-8333-333333333333",
+        status: "deferred_issue_execution",
+        reason: "execution_review_requested",
+        payload: expect.objectContaining({
+          issueId: "11111111-1111-4111-8111-111111111111",
+          executionStageDelivery: expect.objectContaining({
+            schema: "paperclip.execution-stage-wake.v1",
+            sourceRunId: "run-1",
+          }),
+          executionStage: expect.objectContaining({
+            wakeRole: "reviewer",
+            stageType: "review",
+            reviewRequest: {
+              instructions:
+                "Please verify the fix against the reproduction steps and note any residual risk.",
+            },
+            allowedActions: ["approve", "request_changes"],
           }),
         }),
-      ),
+      }),
     );
+    expect(mockDb.transaction).toHaveBeenCalled();
+    expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
   });
 
-  it("wakes the return assignee with execution_changes_requested", async () => {
+  it("retains execution_changes_requested for the return assignee", async () => {
     const policy = await normalizePolicy({
       stages: [
         {
@@ -4054,22 +4061,28 @@ describe("issue comment reopen routes", () => {
       });
 
     expect(res.status).toBe(200);
-    await waitForWakeup(() =>
-      expect(mockHeartbeatService.wakeup).toHaveBeenCalledWith(
-        "22222222-2222-4222-8222-222222222222",
-        expect.objectContaining({
-          reason: "execution_changes_requested",
-          payload: expect.objectContaining({
-            issueId: "11111111-1111-4111-8111-111111111111",
-            executionStage: expect.objectContaining({
-              wakeRole: "executor",
-              stageType: "review",
-              lastDecisionOutcome: "changes_requested",
-              allowedActions: ["address_changes", "resubmit"],
-            }),
+    expect(mockTxInsert).toHaveBeenCalledWith(agentWakeupRequests);
+    expect(mockTxInsertValues).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentId: "22222222-2222-4222-8222-222222222222",
+        status: "deferred_issue_execution",
+        reason: "execution_changes_requested",
+        payload: expect.objectContaining({
+          issueId: "11111111-1111-4111-8111-111111111111",
+          executionStageDelivery: expect.objectContaining({
+            schema: "paperclip.execution-stage-wake.v1",
+            sourceRunId: "run-2",
+          }),
+          executionStage: expect.objectContaining({
+            wakeRole: "executor",
+            stageType: "review",
+            lastDecisionOutcome: "changes_requested",
+            allowedActions: ["address_changes", "resubmit"],
           }),
         }),
-      ),
+      }),
     );
+    expect(mockDb.transaction).toHaveBeenCalled();
+    expect(mockHeartbeatService.wakeup).not.toHaveBeenCalled();
   });
 });

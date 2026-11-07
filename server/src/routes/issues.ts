@@ -14855,9 +14855,13 @@ export function issueRoutes(
         const runToStopForReassignment = await resolveActiveIssueRun(existing);
         const isLegacySelfHandoff =
           req.actor.type === "agent" &&
-          req.actor.source === "agent_jwt" &&
-          (transition.workflowControlledAssignment ||
-            (nextAssigneeAgentId === null && typeof nextAssigneeUserId === "string")) &&
+          // Gateway agents can use an agent key with a run header. The header
+          // alone is not authority: require the exact active task, agent and
+          // company below, after the normal mutation/run authorization checks.
+          ((transition.workflowControlledAssignment &&
+            (req.actor.source === "agent_jwt" || req.actor.source === "agent_key")) ||
+            (req.actor.source === "agent_jwt" &&
+              nextAssigneeAgentId === null && typeof nextAssigneeUserId === "string")) &&
           req.actor.agentId === existing.assigneeAgentId &&
           runToStopForReassignment?.runtimeMode === "legacy" &&
           runToStopForReassignment.id === req.actor.runId &&

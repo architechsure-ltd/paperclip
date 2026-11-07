@@ -301,7 +301,12 @@ describe("issue execution policy routes", () => {
     expect(mockHeartbeatService.cancelRun).not.toHaveBeenCalled();
   });
 
-  it.each([true, false])("finishes an authenticated legacy policy self-handover without self-cancellation (same run=%s)", async sameRun => {
+  it.each([
+    { source: "agent_jwt", mismatch: "none" },
+    { source: "agent_key", mismatch: "none" },
+    ...(["agent_jwt", "agent_key"] as const).flatMap(source =>
+      (["run", "company", "agent", "issue", "runtime"] as const).map(mismatch => ({ source, mismatch }))),
+  ] as const)("validates $source legacy policy self-handover ($mismatch)", async ({ source, mismatch }) => {
     const engineer = "33333333-3333-4333-8333-333333333333";
     const reviewer = "44444444-4444-4444-8444-444444444444";
     const runId = "55555555-5555-4555-8555-555555555555";
@@ -309,17 +314,28 @@ describe("issue execution policy routes", () => {
       assigneeAgentId: engineer, assigneeUserId: null, createdByUserId: "local-board", identifier: "TEST-1", title: "Review handover",
       executionPolicy: normalizeIssueExecutionPolicy({ stages: [{ id: "11111111-1111-4111-8111-111111111111", type: "review", participants: [{ type: "agent", agentId: reviewer }] }] }), executionState: null,
     };
-    const active = { id: runId, companyId: issue.companyId, agentId: engineer, status: "running", runtimeMode: "legacy", contextSnapshot: { issueId: issue.id } };
+    const active = { id: runId, companyId: mismatch === "company" ? "other-company" : issue.companyId,
+      agentId: mismatch === "agent" ? reviewer : engineer, status: "running",
+      runtimeMode: mismatch === "runtime" ? "native" : "legacy",
+      contextSnapshot: { issueId: mismatch === "issue" ? "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb" : issue.id } };
     mockIssueService.getById.mockResolvedValue(issue);
     mockIssueService.update.mockImplementation(async (_id: string, patch: Record<string, unknown>) => ({ ...issue, ...patch, updatedAt: new Date() }));
     mockHeartbeatService.getActiveRunForAgent.mockResolvedValue(active as never);
+    mockHeartbeatService.getRun.mockResolvedValue(active as never);
+    Object.assign(issue, { executionRunId: runId });
     mockHeartbeatService.cancelRun.mockResolvedValue({ ...active, status: "cancelled" } as never);
-    const res = await request(await createApp({ type: "agent", source: "agent_jwt", companyId: issue.companyId,
-      agentId: engineer, runId: sameRun ? runId : "66666666-6666-4666-8666-666666666666" }))
+    const res = await request(await createApp({ type: "agent", source, companyId: issue.companyId,
+      agentId: engineer, runId: mismatch === "run" ? "66666666-6666-4666-8666-666666666666" : runId }))
       .patch(`/api/issues/${issue.id}`).send({ status: "done", comment: "Implementation and verification are ready for review." });
+    if (mismatch === "runtime") {
+      expect(res.status).toBe(409);
+      expect(mockHeartbeatService.cancelRun).not.toHaveBeenCalled();
+      expect(mockIssueService.update).not.toHaveBeenCalled();
+      return;
+    }
     expect(res.status, decodeURIComponent(res.headers["x-fixture-error"] ?? JSON.stringify(res.body))).toBe(200);
     expect(res.body).toMatchObject({ status: "in_review", assigneeAgentId: reviewer });
-    if (sameRun) expect(mockHeartbeatService.cancelRun).not.toHaveBeenCalled();
+    if (mismatch === "none") expect(mockHeartbeatService.cancelRun).not.toHaveBeenCalled();
     else expect(mockHeartbeatService.cancelRun).toHaveBeenCalledWith(runId, expect.any(String), expect.objectContaining({ errorCode: "issue_reassigned" }));
     expect(mockDb.transaction).toHaveBeenCalled();
     expect(mockIssueService.update).toHaveBeenCalledWith(issue.id, expect.objectContaining({ status: "in_review" }), expect.anything());
