@@ -44,11 +44,13 @@ jobs:
           pnpm --version
           echo "Candidate: $(git rev-parse HEAD)"
           echo "Patch file SHA256: $(sha256sum patches/acpx@0.13.1.patch)"
-          pnpm install --resolution-only --ignore-scripts --no-frozen-lockfile
-          echo "Updated lockfile status:"
-          git diff --stat -- pnpm-lock.yaml
-          git diff -- pnpm-lock.yaml | head -n 90 || true
+          grep -q 'hash: znmbdzl4jxbijsedt3w4udsaem' pnpm-lock.yaml
+          if grep -q 'patch_hash=25xv27loodfejozcsygclyiyau' pnpm-lock.yaml; then
+            echo "::error::Stale ACPX lockfile patch hash"
+            exit 1
+          fi
           pnpm install --frozen-lockfile
+          git diff --exit-code -- pnpm-lock.yaml
           git fetch --no-tags origin "$ATS_SHA"
           test ! -e server/src/__tests__/acpx-owned-process-lifecycle.test.mjs
           git show "$ATS_SHA:server/src/__tests__/acpx-owned-process-lifecycle.test.mjs" > server/src/__tests__/acpx-owned-process-lifecycle.test.mjs
