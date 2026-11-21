@@ -1103,6 +1103,31 @@ export async function buildPaperclipRuntimeMcpServers(input: {
         )
         .limit(1);
       if (!profile) throw error;
+      // createProfile may have inserted the header before its entries failed.
+      // A half-created immutable profile is NOT proof of a successful
+      // concurrent creator; never mint a run token for an incomplete snapshot.
+      const persisted = await input.db
+        .select({
+          selectorType: toolProfileEntries.selectorType,
+          applicationId: toolProfileEntries.applicationId,
+          connectionId: toolProfileEntries.connectionId,
+          catalogEntryId: toolProfileEntries.catalogEntryId,
+          effect: toolProfileEntries.effect,
+        })
+        .from(toolProfileEntries)
+        .where(
+          and(
+            eq(toolProfileEntries.companyId, input.agent.companyId),
+            eq(toolProfileEntries.profileId, profile.id),
+          ),
+        );
+      const key = (entry: { selectorType: string; applicationId?: string | null; connectionId?: string | null; catalogEntryId?: string | null; effect?: string | null }) =>
+        [entry.selectorType, entry.applicationId, entry.connectionId, entry.catalogEntryId, entry.effect ?? "include"].join(":");
+      if (persisted.length !== entries.length ||
+          new Set(persisted.map(key)).size !== entries.length ||
+          persisted.some(entry => !entries.some(expected => key(expected) === key(entry)))) {
+        throw error;
+      }
     }
   }
 
