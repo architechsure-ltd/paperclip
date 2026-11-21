@@ -104,3 +104,27 @@ Compared Git blob identity at three fixed refs. **65 ATS-differing files; 33 non
 ## Approval boundaries
 
 No automatic merge to ATS master, production update, credential exposure, paid provider calls, schema migration, or broad repository permissions change. Record actual CI and runtime evidence before upgrading. This candidate may be revised or discarded independently of production.
+
+## Checkpoint — 21 November 2026, 18:00 UTC
+
+**GitHub integration progress: preparation completed; source merge deliberately not committed.**
+
+- The isolated branch now carries the ATS no-scheduled-Actions policy, manual-only upstream release/test triggers, cloud push-trigger removal and retirement of the inherited lockfile bot, with corresponding policy test adjustments.
+- The GitHub-hosted three-way merge assessment initially found 11 conflicts. Reassessment after applying the ATS operations policy found exactly 9 remaining conflicted paths:
+  - `doc/DEVELOPING.md`
+  - `patches/acpx@0.13.1.patch`
+  - `pnpm-lock.yaml`
+  - `server/src/routes/issues.ts`
+  - `server/src/services/heartbeat.ts`
+  - `server/src/services/heartbeat/queue.ts`
+  - `server/src/services/legacy-execution-recovery.ts`
+  - `tests/runner-e2e/report-lock.json`
+  - `tests/runner-e2e/report-lock.patch`
+- [Read-only merge assessment PASS](https://github.com/architechsure-ltd/paperclip/actions/runs/44932718212): verified no scheduled workflows/bot remain, and enumerated exact conflict paths.
+- [Read-only candidate reconciliation](https://github.com/architechsure-ltd/paperclip/actions/runs/44933073416) **FAIL (intentional fail-closed)**: the ACPX 0.13.1 patch has many overlapping patch-format hunks; the early hard case was resolved only provisionally and the checker stopped on unexpected conflict #48. It did not commit or push. Blindly choosing one side risks losing upstream ACPX behaviour or ATS process-group shutdown guarantees.
+- The core server conflicts are three import-only locations plus one reassignment flow in `issues.ts`. There, ATS `isLegacySelfHandoff` can preserve the agent-key policy exemption while upstream's durable native stop handling must remain intact. This is a **proposed textual resolution, not yet validated**.
+- `pnpm-lock.yaml` and the report lock evidence are to be regenerated and checked, not copied from the old fork.
+
+**Next bounded engineering slice:** reconstruct a valid combined ACPX package patch against `acpx@0.13.1`, retaining upstream additions and ATS owned process groups. Prove patch applies and passes ACPX lifecycle tests. Only then complete the source merge in an isolated branch, run CI, and prepare a draft PR. No laptop, staging or production operation has occurred.
+
+The fork's `master` must remain at `96a712e1968be89701ec7fc9f5ae452dce081914` until a separate approved merge.
