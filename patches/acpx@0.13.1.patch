@@ -1,5 +1,5 @@
 diff --git a/dist/client-CxNllqui.d.ts b/dist/client-CxNllqui.d.ts
-index 5e2113ac0a1a92c99322cf01e5c106760a0b0dbf..45aff03c37427071de49b45eb0361a9a808786e0 100644
+index 5e2113a..45aff03 100644
 --- a/dist/client-CxNllqui.d.ts
 +++ b/dist/client-CxNllqui.d.ts
 @@ -120,6 +120,8 @@ declare class AcpClient {
@@ -20,10 +20,15 @@ index 5e2113ac0a1a92c99322cf01e5c106760a0b0dbf..45aff03c37427071de49b45eb0361a9a
    private setSessionModelThroughConfig;
    private setSessionModelThroughLegacyMethod;
 diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
-index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf99684b7a 100644
+index d454fd7..e126315 100644
 --- a/dist/live-checkpoint-BSIrfgVo.js
 +++ b/dist/live-checkpoint-BSIrfgVo.js
-@@ -6,7 +6,7 @@ import os from "node:os";
+@@ -1,3 +1,4 @@
++import { ownProcessGroup, processGroupId, closeOwnedProcessGroup } from "./owned-process-group.js";
+ import fs, { readFileSync, statSync } from "node:fs";
+ import { fileURLToPath } from "node:url";
+ import path from "node:path";
+@@ -6,7 +7,7 @@ import os from "node:os";
  import { randomUUID } from "node:crypto";
  import { execFile, spawn } from "node:child_process";
  import { Readable, Writable } from "node:stream";
@@ -32,7 +37,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  import readline from "node:readline/promises";
  //#region src/errors.ts
  var AcpxOperationalError = class extends Error {
-@@ -1068,12 +1068,14 @@ function serializeSessionRecordForDisk(record) {
+@@ -1068,12 +1069,14 @@ function serializeSessionRecordForDisk(record) {
  		last_agent_disconnect_reason: canonical.lastAgentDisconnectReason,
  		protocol_version: canonical.protocolVersion,
  		agent_capabilities: canonical.agentCapabilities,
@@ -47,7 +52,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		acpx: canonical.acpx,
  		imported_from: canonical.importedFrom ? {
  			record_id: canonical.importedFrom.recordId,
-@@ -1239,7 +1241,8 @@ function parseRequestTokenUsage(raw) {
+@@ -1239,7 +1242,8 @@ function parseRequestTokenUsage(raw) {
  	for (const [key, value] of Object.entries(record)) {
  		const parsed = parseTokenUsage(value);
  		if (parsed == null) return null;
@@ -57,7 +62,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  	}
  	return usage;
  }
-@@ -1325,6 +1328,93 @@ function isAgentMessage$1(raw) {
+@@ -1325,6 +1329,93 @@ function isAgentMessage$1(raw) {
  function isConversationMessage(raw) {
  	return raw === "Resume" || isUserMessage$1(raw) || isAgentMessage$1(raw);
  }
@@ -151,7 +156,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  function parseConversationRecord(record) {
  	if (!hasValidConversationCore(record)) return;
  	const title = parseConversationTitle(record.title);
-@@ -1339,7 +1429,8 @@ function parseConversationRecord(record) {
+@@ -1339,7 +1430,8 @@ function parseConversationRecord(record) {
  		updated_at: record.updated_at,
  		cumulative_token_usage: cumulativeTokenUsage ?? {},
  		cumulative_cost: cumulativeCost,
@@ -161,7 +166,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  	};
  }
  const INVALID_VALUE = Symbol("invalid");
-@@ -1541,12 +1632,14 @@ function parseSessionRecord(raw) {
+@@ -1541,12 +1633,14 @@ function parseSessionRecord(raw) {
  		lastAgentDisconnectReason: optionals.lastAgentDisconnectReason,
  		protocolVersion: typeof record.protocol_version === "number" ? record.protocol_version : void 0,
  		agentCapabilities: asRecord$4(record.agent_capabilities),
@@ -176,7 +181,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		acpx: parseAcpxState(record.acpx),
  		importedFrom: metadata.importedFrom
  	};
-@@ -1661,8 +1754,9 @@ const ZED_TAG_KEYS = /* @__PURE__ */ new Set([
+@@ -1661,8 +1755,9 @@ const ZED_TAG_KEYS = /* @__PURE__ */ new Set([
  	"RedactedThinking",
  	"ToolUse"
  ]);
@@ -187,7 +192,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  	"agent_capabilities",
  	"messages.Agent.content.ToolUse.input",
  	"acpx.desired_config_options",
-@@ -3104,10 +3198,10 @@ function authEnvKey(methodId) {
+@@ -3104,10 +3199,10 @@ function authEnvKey(methodId) {
  	authEnvKeyCache.set(methodId, key);
  	return key;
  }
@@ -200,7 +205,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  	if (typeof value === "string" && value.trim().length > 0) return value;
  }
  function protectedEnvKey(key) {
-@@ -3135,8 +3229,21 @@ function promotePrefixedAuthEnvironment(env) {
+@@ -3135,8 +3230,21 @@ function promotePrefixedAuthEnvironment(env) {
  	}
  	return protectedKeys;
  }
@@ -224,7 +229,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  	const protectedAuthEnvKeys = promotePrefixedAuthEnvironment(env);
  	if (authCredentials) for (const [methodId, credential] of Object.entries(authCredentials)) {
  		addAuthCredentialEnvKeys(protectedAuthEnvKeys, methodId, credential);
-@@ -3178,10 +3285,10 @@ function resolveConfiguredAuthCredential(methodId, authCredentials) {
+@@ -3178,10 +3286,11 @@ function resolveConfiguredAuthCredential(methodId, authCredentials) {
  	const configCredentials = authCredentials ?? {};
  	return configCredentials[methodId] ?? configCredentials[toEnvToken(methodId)];
  }
@@ -233,11 +238,12 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  	return {
  		cwd,
 -		env: buildAgentEnvironment(authCredentials, sessionEnv),
++		detached: process.platform !== "win32",
 +		env: buildAgentEnvironment(authCredentials, sessionEnv, spawnEnvironment),
  		stdio: [
  			"pipe",
  			"pipe",
-@@ -3286,28 +3393,12 @@ function formatAvailableModelIds(models) {
+@@ -3286,28 +3395,12 @@ function formatAvailableModelIds(models) {
  	const ids = models?.availableModels.map((model) => model.modelId.trim()).filter((modelId) => modelId.length > 0) ?? [];
  	return ids.length > 0 ? ids.join(", ") : "none advertised";
  }
@@ -267,7 +273,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  }
  //#endregion
  //#region src/acp/session-control-errors.ts
-@@ -3961,10 +4052,13 @@ function resolveClientCapabilities(params) {
+@@ -3961,10 +4054,13 @@ function resolveClientCapabilities(params) {
  			...params.elicitationModes.includes("url") ? { url: {} } : {}
  		} } : {}
  	};
@@ -283,7 +289,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  	};
  }
  function hasResponseField(response, field) {
-@@ -4067,6 +4161,27 @@ function createNdJsonMessageStream(agentCommand, output, input) {
+@@ -4067,6 +4163,27 @@ function createNdJsonMessageStream(agentCommand, output, input) {
  		} })
  	};
  }
@@ -311,7 +317,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  var AcpClient = class {
  	options;
  	connection;
-@@ -4105,7 +4220,9 @@ var AcpClient = class {
+@@ -4105,7 +4222,9 @@ var AcpClient = class {
  			cwd: asAbsoluteCwd(options.cwd),
  			authPolicy: options.authPolicy ?? "skip",
  			permissionPolicy: snapshotPermissionPolicy(options.permissionPolicy),
@@ -322,18 +328,23 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		};
  		this.eventHandlers = {
  			onAcpMessage: this.options.onAcpMessage,
-@@ -4216,9 +4333,21 @@ var AcpClient = class {
+@@ -4211,14 +4330,26 @@ var AcpClient = class {
+ 		this.logAgentLaunch(launch);
+ 		await this.ensureLaunchSupport(launch);
+ 		const child = await this.spawnAgentProcess(launch);
++		this.agent = child;
++		try {
+ 		this.closing = false;
+ 		this.agentStartedAt = isoNow$1();
  		this.lastAgentExit = void 0;
  		this.lastKnownPid = child.pid ?? void 0;
  		this.attachAgentLifecycleObservers(child);
 +		if (this.options.onAgentSpawn) {
 +			try {
 +				if (!child.pid) throw new Error("ACPX agent spawn did not expose a valid process id.");
-+				await this.options.onAgentSpawn({ pid: child.pid, startedAt: this.agentStartedAt });
++				await this.options.onAgentSpawn({ pid: child.pid, processGroupId: processGroupId(child), startedAt: this.agentStartedAt });
 +			} catch (error) {
-+				try {
-+					child.kill("SIGKILL");
-+				} catch {}
++				await this.terminateAgentProcess(child);
 +				throw error;
 +			}
 +		}
@@ -344,7 +355,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  			if (!this.options.verbose) return;
  			process.stderr.write(chunk);
  		});
-@@ -4226,6 +4355,7 @@ var AcpClient = class {
+@@ -4226,6 +4357,7 @@ var AcpClient = class {
  		const output = Readable.toWeb(child.stdout);
  		const stream = this.createTappedStream(createNdJsonMessageStream(this.options.agentCommand, input, output));
  		const connection = this.createConnection(stream, launch);
@@ -352,7 +363,18 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		connection.signal.addEventListener("abort", () => {
  			this.recordAgentExit("connection_close", child.exitCode ?? null, child.signalCode ?? null);
  		}, { once: true });
-@@ -4253,7 +4383,12 @@ var AcpClient = class {
+@@ -4237,6 +4369,10 @@ var AcpClient = class {
+ 			startupStderr,
+ 			launch
+ 		});
++		} catch (error) {
++			await this.terminateAgentProcess(child);
++			throw error;
++		}
+ 	}
+ 	async resolveAgentLaunchPlan() {
+ 		const configuredCommand = resolveAgentCommandParts(this.options.agentCommand, this.options.agentArgv);
+@@ -4253,7 +4389,12 @@ var AcpClient = class {
  			geminiAcp: isGeminiAcpCommand(spawnCommand, args),
  			copilotAcp: isCopilotAcpCommand(spawnCommand, args),
  			claudeAcp: isClaudeAcpCommand(spawnCommand, args),
@@ -366,7 +388,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		};
  	}
  	logAgentLaunch(plan) {
-@@ -4279,10 +4414,17 @@ var AcpClient = class {
+@@ -4279,24 +4420,33 @@ var AcpClient = class {
  	}
  	async spawnAgentProcess(plan) {
  		const spawnCommand = buildAgentSpawnCommand(plan.spawnCommand, plan.args, process.platform, plan.spawnOptions.env);
@@ -383,10 +405,16 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
 +				options
 +			})
 +			: spawn(spawnCommand.command, spawnCommand.args, options);
++		if (!this.options.spawnAgent && options.detached === true) ownProcessGroup(spawnedChild);
  		try {
  			await waitForSpawn$1(spawnedChild);
++			return requireAgentStdio(spawnedChild);
  		} catch (error) {
-@@ -4293,10 +4435,10 @@ var AcpClient = class {
++			if (processGroupId(spawnedChild) !== null) await this.terminateAgentProcess(spawnedChild);
+ 			throw new AgentSpawnError(this.options.agentCommand, error);
+ 		}
+-		return requireAgentStdio(spawnedChild);
+ 	}
  	createConnection(stream, launch) {
  		const app = client({ name: "acpx" }).onNotification(methods.client.session.update, async ({ params }) => {
  			await this.handleSessionUpdate(params);
@@ -400,7 +428,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		}).onRequest(methods.client.fs.readTextFile, async ({ params }) => {
  			return await this.handleReadTextFile(params);
  		}).onRequest(methods.client.fs.writeTextFile, async ({ params }) => {
-@@ -4312,6 +4454,11 @@ var AcpClient = class {
+@@ -4312,6 +4462,11 @@ var AcpClient = class {
  		}).onRequest(methods.client.terminal.release, async ({ params }) => {
  			return await this.handleReleaseTerminal(params);
  		});
@@ -412,7 +440,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		if (launch.devinAcp) app.onRequest("_cognition.ai/request_diagnostics", (params) => {
  			return params && typeof params === "object" && !Array.isArray(params) ? params : {};
  		}, async () => ({}));
-@@ -4333,12 +4480,12 @@ var AcpClient = class {
+@@ -4333,12 +4488,12 @@ var AcpClient = class {
  	async initializeProtocolConnection(connection, launch) {
  		const initializePromise = connection.initialize({
  			protocolVersion: PROTOCOL_VERSION,
@@ -427,7 +455,18 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  			clientInfo: resolveClientInfo(launch.devinAcp)
  		});
  		const initialized = launch.geminiAcp ? await withTimeout(initializePromise, resolveGeminiAcpStartupTimeoutMs()) : await initializePromise;
-@@ -4358,6 +4505,49 @@ var AcpClient = class {
+@@ -4348,9 +4503,7 @@ var AcpClient = class {
+ 	async handleInitializeFailure(params, error) {
+ 		params.startupFailure.dispose();
+ 		const normalizedError = await this.normalizeInitializeError(error, params.child, params.startupStderr);
+-		try {
+-			params.child.kill();
+-		} catch {}
++		await this.terminateAgentProcess(params.child);
+ 		if (params.launch.geminiAcp && error instanceof TimeoutError) throw new GeminiAcpStartupTimeoutError(await buildGeminiAcpStartupTimeoutMessage(params.launch.spawnCommand), {
+ 			cause: error,
+ 			retryable: true
+@@ -4358,6 +4511,49 @@ var AcpClient = class {
  		throw normalizedError;
  	}
  	createTappedStream(base) {
@@ -477,7 +516,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		const onAcpMessage = () => this.eventHandlers.onAcpMessage;
  		const onAcpOutputMessage = () => this.eventHandlers.onAcpOutputMessage;
  		const elicitationRequestIds = /* @__PURE__ */ new Set();
-@@ -4367,8 +4557,12 @@ var AcpClient = class {
+@@ -4367,8 +4563,12 @@ var AcpClient = class {
  		const shouldSuppressInboundReplaySessionUpdate = (message) => {
  			return this.suppressReplaySessionUpdateMessages && isSessionUpdateNotification(message);
  		};
@@ -491,7 +530,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  			if (requestId !== void 0) {
  				elicitationRequestIds.add(requestId);
  				return;
-@@ -4379,6 +4573,7 @@ var AcpClient = class {
+@@ -4379,6 +4579,7 @@ var AcpClient = class {
  			}
  		};
  		return {
@@ -499,7 +538,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  			readable: new ReadableStream({ async start(controller) {
  				const reader = base.readable.getReader();
  				try {
-@@ -4386,16 +4581,27 @@ var AcpClient = class {
+@@ -4386,16 +4587,27 @@ var AcpClient = class {
  						const { value, done } = await reader.read();
  						if (done) break;
  						if (!value) continue;
@@ -529,7 +568,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  				const promptOwner = promptRequestOwner(message);
  				if (promptOwner) bindPromptOwner(promptOwner);
  				const id = responseId(message);
-@@ -4403,10 +4609,20 @@ var AcpClient = class {
+@@ -4403,10 +4615,20 @@ var AcpClient = class {
  					onAcpOutputMessage()?.("outbound", message);
  					onAcpMessage()?.("outbound", message);
  				}
@@ -550,7 +589,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  					writer.releaseLock();
  				}
  			} })
-@@ -4422,7 +4638,10 @@ var AcpClient = class {
+@@ -4422,7 +4644,10 @@ var AcpClient = class {
  			const createPromise = this.runConnectionRequest(() => connection.newSession({
  				cwd: sessionCwd,
  				mcpServers: this.options.mcpServers ?? [],
@@ -562,7 +601,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  			}));
  			result = claudeAcp ? await withTimeout(createPromise, resolveClaudeAcpSessionCreateTimeoutMs()) : await createPromise;
  		} catch (error) {
-@@ -4454,6 +4673,7 @@ var AcpClient = class {
+@@ -4454,6 +4679,7 @@ var AcpClient = class {
  	}
  	async loadSessionWithOptions(sessionId, cwd = this.options.cwd, options = {}) {
  		const connection = this.getConnection();
@@ -570,7 +609,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		const sessionCwd = await resolveAgentSessionCwd(cwd, this.options.agentCommand);
  		const previousSuppression = this.applySessionUpdateSuppression(Boolean(options.suppressReplayUpdates));
  		let response;
-@@ -4461,7 +4681,9 @@ var AcpClient = class {
+@@ -4461,7 +4687,9 @@ var AcpClient = class {
  			response = await this.runConnectionRequest(() => connection.loadSession({
  				sessionId,
  				cwd: sessionCwd,
@@ -581,7 +620,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  			}));
  			await this.waitForSessionUpdateDrain(options.replayIdleMs ?? REPLAY_IDLE_MS, options.replayDrainTimeoutMs ?? REPLAY_DRAIN_TIMEOUT_MS);
  		} finally {
-@@ -4474,11 +4696,14 @@ var AcpClient = class {
+@@ -4474,11 +4702,14 @@ var AcpClient = class {
  	}
  	async resumeSession(sessionId, cwd = this.options.cwd) {
  		const connection = this.getConnection();
@@ -597,7 +636,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		}));
  		this.loadedSessionId = sessionId;
  		const result = toReconnectedSessionResult(response);
-@@ -4590,15 +4815,17 @@ var AcpClient = class {
+@@ -4590,15 +4821,17 @@ var AcpClient = class {
  			throw maybeWrapSessionControlError("session/set_config_option", error, `for "${configId}"="${value}"`);
  		}
  	}
@@ -621,7 +660,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  	}
  	async setSessionModelThroughConfig(sessionId, modelId, configId) {
  		const connection = this.getConnection();
-@@ -4608,7 +4835,9 @@ var AcpClient = class {
+@@ -4608,7 +4841,9 @@ var AcpClient = class {
  				configId,
  				value: modelId
  			}));
@@ -632,7 +671,22 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  			return response;
  		} catch (error) {
  			return this.throwSessionModelError("session/set_config_option", modelId, error);
-@@ -4864,7 +5093,7 @@ var AcpClient = class {
+@@ -4747,6 +4982,14 @@ var AcpClient = class {
+ 		this.connection?.close?.();
+ 	}
+ 	async terminateAgentProcess(child) {
++		if (processGroupId(child) !== null) {
++			try {
++				await closeOwnedProcessGroup(child, resolveAgentCloseAfterStdinEndMs(this.options.agentCommand));
++			} finally {
++				this.detachAgentHandles(child, isChildProcessRunning(child));
++			}
++			return;
++		}
+ 		const stdinCloseGraceMs = resolveAgentCloseAfterStdinEndMs(this.options.agentCommand);
+ 		this.endAgentStdin(child);
+ 		let exited = await waitForChildExit(child, stdinCloseGraceMs);
+@@ -4864,7 +5107,7 @@ var AcpClient = class {
  	}
  	selectAuthMethod(methods) {
  		for (const method of methods) {
@@ -641,7 +695,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  			if (envCredential) return {
  				methodId: method.id,
  				credential: envCredential,
-@@ -4890,7 +5119,7 @@ var AcpClient = class {
+@@ -4890,7 +5133,7 @@ var AcpClient = class {
  	}
  	readAgentSpecificEnvCredential(methodId) {
  		if (!this.isGrokBuildAcpCommand() || methodId !== "xai.api_key") return;
@@ -650,7 +704,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		return typeof value === "string" && value.trim().length > 0 ? value : void 0;
  	}
  	selectAgentManagedAuthMethod(methodId) {
-@@ -4915,9 +5144,9 @@ var AcpClient = class {
+@@ -4915,9 +5158,9 @@ var AcpClient = class {
  		await connection.authenticate({ methodId: selected.methodId });
  		this.log(`authenticated with method ${selected.methodId} (${selected.source})`);
  	}
@@ -662,7 +716,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		if (hostResponse) return hostResponse;
  		const { response, recorded } = await this.resolvePermissionRequestFromMode(params);
  		if (!recorded) {
-@@ -4926,14 +5155,81 @@ var AcpClient = class {
+@@ -4926,14 +5169,81 @@ var AcpClient = class {
  		}
  		return response;
  	}
@@ -746,7 +800,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		})).then((response) => ({
  			kind: "response",
  			response
-@@ -4970,7 +5266,7 @@ var AcpClient = class {
+@@ -4970,7 +5280,7 @@ var AcpClient = class {
  	isElicitationSessionCancelling(sessionId) {
  		return this.closing || this.cancellingSessionIds.has(sessionId);
  	}
@@ -755,7 +809,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		if (!this.options.onPermissionRequest) return;
  		const signal = this.cancellationSignalForSession(params.sessionId);
  		try {
-@@ -4978,7 +5274,7 @@ var AcpClient = class {
+@@ -4978,7 +5288,7 @@ var AcpClient = class {
  				sessionId: params.sessionId,
  				raw: params,
  				inferredKind: inferToolKind(params)
@@ -764,7 +818,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  			return this.hostPermissionDecisionResponse(params, signal, decision);
  		} catch (error) {
  			return this.hostPermissionErrorResponse(params, signal, error);
-@@ -5028,6 +5324,12 @@ var AcpClient = class {
+@@ -5028,6 +5338,12 @@ var AcpClient = class {
  	attachAgentLifecycleObservers(child) {
  		child.once("exit", (exitCode, signal) => {
  			this.recordAgentExit("process_exit", exitCode, signal);
@@ -777,7 +831,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		});
  		child.once("close", (exitCode, signal) => {
  			this.recordAgentExit("process_close", exitCode, signal);
-@@ -5100,6 +5402,9 @@ var AcpClient = class {
+@@ -5100,6 +5416,9 @@ var AcpClient = class {
  			return await this.filesystem.readTextFile(params);
  		} catch (error) {
  			this.recordPermissionError(params.sessionId, error);
@@ -787,7 +841,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  			throw error;
  		}
  	}
-@@ -5239,6 +5544,7 @@ function applyConversation(record, conversation) {
+@@ -5239,6 +5558,7 @@ function applyConversation(record, conversation) {
  	record.cumulative_token_usage = conversation.cumulative_token_usage;
  	record.cumulative_cost = conversation.cumulative_cost;
  	record.request_token_usage = conversation.request_token_usage;
@@ -795,7 +849,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  }
  //#endregion
  //#region src/runtime/engine/session-options.ts
-@@ -5701,7 +6007,8 @@ function cloneSessionConversation(conversation) {
+@@ -5701,7 +6021,8 @@ function cloneSessionConversation(conversation) {
  		updated_at: conversation.updated_at,
  		cumulative_token_usage: deepClone(conversation.cumulative_token_usage ?? {}),
  		cumulative_cost: cloneUsageCost(conversation.cumulative_cost),
@@ -805,7 +859,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  	};
  }
  function cloneUsageCost(cost) {
-@@ -5771,10 +6078,20 @@ function recordSessionUpdate(conversation, state, notification, timestamp = isoN
+@@ -5771,10 +6092,20 @@ function recordSessionUpdate(conversation, state, notification, timestamp = isoN
  	trimConversationForRuntime(conversation);
  	return acpx;
  }
@@ -828,7 +882,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  	updateConversationTimestamp(conversation, timestamp);
  	trimConversationForRuntime(conversation);
  	return true;
-@@ -6136,6 +6453,7 @@ async function connectAndLoadSession(options) {
+@@ -6136,6 +6467,7 @@ async function connectAndLoadSession(options) {
  	pendingAgentSessionId = loadState.pendingAgentSessionId;
  	sessionModels = loadState.sessionModels;
  	const preferenceReplay = await replayFreshSessionPreferences({
@@ -836,7 +890,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		client,
  		record,
  		createdFreshSession,
-@@ -6193,14 +6511,16 @@ function logReconnectAttempt(record, storedProcessAlive, shouldReconnect, verbos
+@@ -6193,14 +6525,16 @@ function logReconnectAttempt(record, storedProcessAlive, shouldReconnect, verbos
  	if (shouldReconnect) process.stderr.write(`[acpx] saved session pid ${record.pid} is dead; respawning agent and attempting session reconnect\n`);
  }
  async function replayFreshSessionPreferences(params) {
@@ -855,7 +909,16 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  			client: params.client,
  			sessionId: params.sessionId,
  			desiredModeId: params.desiredModeId,
-@@ -6435,6 +6755,27 @@ async function withConnectedSession(options) {
+@@ -6219,7 +6553,7 @@ async function replayFreshSessionPreferences(params) {
+ 			verbose: params.verbose,
+ 			suppressWarnings: params.suppressWarnings
+ 		});
+-		configReplay = await replayDesiredConfigOptions({
++		if (params.createdFreshSession) configReplay = await replayDesiredConfigOptions({
+ 			client: params.client,
+ 			record: params.record,
+ 			sessionId: params.sessionId,
+@@ -6435,6 +6769,27 @@ async function withConnectedSession(options) {
  //#region src/runtime/engine/prompt-turn.ts
  const SESSION_REPLY_IDLE_MS = 1e3;
  const SESSION_REPLY_DRAIN_TIMEOUT_MS = 5e3;
@@ -883,7 +946,7 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  async function runPromptTurn(params) {
  	try {
  		const promptPromise = params.client.prompt(params.sessionId, params.prompt, params.onPromptRequestStarted, params.onElicitation);
-@@ -6444,7 +6785,23 @@ async function runPromptTurn(params) {
+@@ -6444,7 +6799,23 @@ async function runPromptTurn(params) {
  			idleMs: SESSION_REPLY_IDLE_MS,
  			timeoutMs: SESSION_REPLY_DRAIN_TIMEOUT_MS
  		}).catch(() => {});
@@ -907,8 +970,71 @@ index d454fd7c5bf742b469be75eb8c3988b694a0ffaa..25d957b502a8680ff3e4d64356dc32bf
  		return {
  			stopReason: response.stopReason,
  			source: "rpc"
+diff --git a/dist/owned-process-group.js b/dist/owned-process-group.js
+new file mode 100644
+index 0000000..287aca5
+--- /dev/null
++++ b/dist/owned-process-group.js
+@@ -0,0 +1,57 @@
++const groups = new WeakMap();
++const closes = new WeakMap();
++export function ownProcessGroup(child) {
++  if (process.platform !== "win32" && Number.isSafeInteger(child.pid) && child.pid > 1) {
++    groups.set(child, { id: child.pid, absent: false });
++  }
++}
++export function processGroupId(child) {
++  return groups.get(child)?.id ?? null;
++}
++function groupAlive(group) {
++  if (group.absent) return false;
++  try {
++    process.kill(-group.id, 0);
++    return true;
++  } catch (error) {
++    if (error.code !== "ESRCH") throw error;
++    group.absent = true;
++    return false;
++  }
++}
++function parentExited(child) {
++  return child.exitCode !== null || child.signalCode !== null;
++}
++async function waitForSettlement(child, group, milliseconds) {
++  const deadline = performance.now() + milliseconds;
++  do {
++    if (!groupAlive(group) && parentExited(child)) return true;
++    const remaining = deadline - performance.now();
++    if (remaining <= 0) return false;
++    await new Promise(resolve => setTimeout(resolve, Math.min(25, remaining)));
++  } while (true);
++}
++export function closeOwnedProcessGroup(child, stdinGraceMs = 100) {
++  if (closes.has(child)) return closes.get(child);
++  const group = groups.get(child);
++  if (!group) return Promise.reject(new Error("ACPX has no authority over this process group"));
++  const close = (async () => {
++    try { child.stdin?.end(); } catch {}
++    if (await waitForSettlement(child, group, stdinGraceMs)) return;
++    for (const [signal, grace] of [["SIGTERM", 1500], ["SIGKILL", 1000]]) {
++      if (groupAlive(group)) {
++        try { process.kill(-group.id, signal); }
++        catch (error) {
++          if (error.code !== "ESRCH") throw error;
++          group.absent = true;
++        }
++      }
++      if (await waitForSettlement(child, group, grace)) return;
++    }
++    const error = new Error("ACPX process group did not settle within the shutdown deadline");
++    error.code = "ACPX_PROCESS_GROUP_UNSETTLED";
++    throw error;
++  })();
++  closes.set(child, close);
++  return close;
++}
 diff --git a/dist/runtime.d.ts b/dist/runtime.d.ts
-index e8102acb03c4c38830ad5ec22f356125eb0423b7..04c7e3ae0453b352447efb53af17f6e25ee98307 100644
+index e8102ac..d904f04 100644
 --- a/dist/runtime.d.ts
 +++ b/dist/runtime.d.ts
 @@ -1,7 +1,8 @@
@@ -941,7 +1067,7 @@ index e8102acb03c4c38830ad5ec22f356125eb0423b7..04c7e3ae0453b352447efb53af17f6e2
  type AcpRuntimeEvent = {
    type: "text_delta";
    text: string;
-@@ -186,6 +193,15 @@ type AcpRuntimeEvent = {
+@@ -186,6 +193,19 @@ type AcpRuntimeEvent = {
     * non-null `input` schema.
     */
    availableCommands?: AcpRuntimeAvailableCommand[];
@@ -954,10 +1080,14 @@ index e8102acb03c4c38830ad5ec22f356125eb0423b7..04c7e3ae0453b352447efb53af17f6e2
 +  type: "plan";
 +  tag: "plan";
 +  entries: AcpRuntimePlanEntry[];
++} | {
++  type: "plan";
++  tag: "plan";
++  entries: AcpRuntimePlanEntry[];
  } | {
    type: "tool_call";
    text: string;
-@@ -198,6 +214,11 @@ type AcpRuntimeEvent = {
+@@ -198,6 +218,11 @@ type AcpRuntimeEvent = {
    rawInput?: unknown;
    rawOutput?: unknown;
    content?: ToolCallContent[];
@@ -969,7 +1099,7 @@ index e8102acb03c4c38830ad5ec22f356125eb0423b7..04c7e3ae0453b352447efb53af17f6e2
  } |
  /**
   * Compatibility terminal event emitted by runTurn(...). startTurn(...).events
-@@ -312,7 +333,51 @@ type AcpRuntimeOptions = {
+@@ -312,7 +337,51 @@ type AcpRuntimeOptions = {
    elicitationModes?: readonly AcpElicitationMode[];
    onPermissionRequest?: (req: AcpPermissionRequest, ctx: {
      signal: AbortSignal;
@@ -997,7 +1127,7 @@ index e8102acb03c4c38830ad5ec22f356125eb0423b7..04c7e3ae0453b352447efb53af17f6e2
 +    args: readonly string[];
 +    options: SpawnOptionsWithoutStdio;
 +  }) => ChildProcess;
-+  onAgentSpawn?: (meta: { pid: number; startedAt: string }) => Promise<void> | void;
++  onAgentSpawn?: (meta: { pid: number; processGroupId: number | null; startedAt: string }) => Promise<void> | void;
 +  onAgentStderr?: (chunk: string) => void;
 +  onAgentExit?: (meta: {
 +    pid?: number;
@@ -1021,7 +1151,7 @@ index e8102acb03c4c38830ad5ec22f356125eb0423b7..04c7e3ae0453b352447efb53af17f6e2
  };
  type AcpFileSessionStoreOptions = {
    stateDir: string;
-@@ -369,6 +434,7 @@ declare class AcpRuntimeManager {
+@@ -369,6 +438,7 @@ declare class AcpRuntimeManager {
    private createAndSaveRuntimeRecord;
    private retainInitializedSessionOwner;
    startTurn(input: {
@@ -1029,7 +1159,7 @@ index e8102acb03c4c38830ad5ec22f356125eb0423b7..04c7e3ae0453b352447efb53af17f6e2
      handle: AcpRuntimeHandle;
      text: string;
      attachments?: AcpRuntimeTurnAttachment[];
-@@ -414,6 +480,7 @@ declare class AcpRuntimeManager {
+@@ -414,6 +484,7 @@ declare class AcpRuntimeManager {
    private cleanupRuntimeTurn;
    private finalizeRuntimeTurnRecord;
    runTurn(input: {
@@ -1038,7 +1168,7 @@ index e8102acb03c4c38830ad5ec22f356125eb0423b7..04c7e3ae0453b352447efb53af17f6e2
      text: string;
      attachments?: AcpRuntimeTurnAttachment[];
 diff --git a/dist/runtime.js b/dist/runtime.js
-index a1f4a70a003792c6eacf68b6b038f37bfec1db53..f8603a26e626253b454812865b99b0d7aa4495f6 100644
+index a1f4a70..f8603a2 100644
 --- a/dist/runtime.js
 +++ b/dist/runtime.js
 @@ -153,7 +153,7 @@ function resolveTextChunk(params) {
@@ -1309,7 +1439,7 @@ index a1f4a70a003792c6eacf68b6b038f37bfec1db53..f8603a26e626253b454812865b99b0d7
  		const { handle } = this.resolveManagerHandle(input.handle);
  		await (await this.getManager()).cancel(handle);
 diff --git a/dist/session-options-DwRDODlr.d.ts b/dist/session-options-DwRDODlr.d.ts
-index c3da1645235bbea22de3f8484149051cd7dca56b..40ae0565394aaa96e0315a2cf3c943c500c77560 100644
+index c3da164..ff2c3c0 100644
 --- a/dist/session-options-DwRDODlr.d.ts
 +++ b/dist/session-options-DwRDODlr.d.ts
 @@ -1,4 +1,5 @@
@@ -1352,7 +1482,7 @@ index c3da1645235bbea22de3f8484149051cd7dca56b..40ae0565394aaa96e0315a2cf3c943c5
 +    args: readonly string[];
 +    options: SpawnOptionsWithoutStdio;
 +  }) => ChildProcess;
-+  onAgentSpawn?: (meta: { pid: number; startedAt: string }) => Promise<void> | void;
++  onAgentSpawn?: (meta: { pid: number; processGroupId: number | null; startedAt: string }) => Promise<void> | void;
 +  onAgentStderr?: (chunk: string) => void;
 +  onAgentExit?: (meta: {
 +    pid?: number;
