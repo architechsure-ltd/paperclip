@@ -2,8 +2,6 @@ name: Cloud readiness
 run-name: Cloud readiness ${{ github.sha }}
 
 on:
-  push:
-    branches: [master]
   workflow_dispatch:
 
 permissions: {}

@@ -2,12 +2,6 @@ name: Release
 run-name: ${{ inputs.channel == 'preview' && format('Stack deploy {0} build', inputs.request_id) || inputs.channel == 'cloud-migrator' && format('Cloud migrator {0}', inputs.source_ref) || 'Release' }}
 
 on:
-  push:
-    branches:
-      - master
-  schedule:
-    # Nightly cut at 09:00 UTC, after the workday's merges have settled.
-    - cron: "0 9 * * *"
   workflow_dispatch:
     inputs:
       channel:
