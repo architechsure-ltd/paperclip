@@ -510,6 +510,11 @@ describeEmbeddedPostgres("heartbeat runtime MCP servers", () => {
       companyId: company!.id, connectionId: connection!.id, targetType: "agent", targetId: agent!.id,
     });
 
+    // Verify whether the merged resolver sees the full pre-existing permissions
+    // before diagnosing native snapshot persistence.
+    const effectiveBeforeSnapshot = await toolAccessService(db)
+      .getEffectiveToolAssignmentsForAgent(company!.id, agent!.id);
+    expect(effectiveBeforeSnapshot.allowedTools).toHaveLength(251);
     const firstRunId = await seedActiveRun(agent!);
     const servers = await buildPaperclipRuntimeMcpServers({ db, agent: agent!, runId: firstRunId });
     expect(servers).toHaveLength(1);
