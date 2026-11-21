@@ -43,7 +43,7 @@ patchedDependencies:
     hash: 6st5fzvttegjv64llnfegwwpca
     path: patches/acpx@0.12.0.patch
   acpx@0.13.1:
-    hash: 25xv27loodfejozcsygclyiyau
+    hash: znmbdzl4jxbijsedt3w4udsaem
     path: patches/acpx@0.13.1.patch
   embedded-postgres@18.1.0-beta.16:
     hash: 55uhvnotpqyiy37rn3pqpukhei
@@ -523,7 +523,7 @@ importers:
         version: 0.160.0
       acpx:
         specifier: 0.13.1
-        version: 0.13.1(patch_hash=25xv27loodfejozcsygclyiyau)
+        version: 0.13.1(patch_hash=znmbdzl4jxbijsedt3w4udsaem)
       ajv:
         specifier: ^8.20.0
         version: 8.20.0
@@ -1021,7 +1021,7 @@ importers:
         version: 8.18.0
       acpx:
         specifier: 0.13.1
-        version: 0.13.1(patch_hash=25xv27loodfejozcsygclyiyau)
+        version: 0.13.1(patch_hash=znmbdzl4jxbijsedt3w4udsaem)
       ai:
         specifier: 7.0.130
         version: 7.0.130(zod@4.6.7)
@@ -13916,7 +13916,7 @@ snapshots:
       - bare-buffer
       - react-native-b4a
 
-  acpx@0.13.1(patch_hash=25xv27loodfejozcsygclyiyau):
+  acpx@0.13.1(patch_hash=znmbdzl4jxbijsedt3w4udsaem):
     dependencies:
       '@agentclientprotocol/sdk': 1.4.0(zod@4.6.7)
       commander: 15.0.0
