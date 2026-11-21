@@ -18,7 +18,7 @@ permissions:
 jobs:
   reconcile:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     env:
       PAPERCLIP_TEST_POSTGRES_TEMPLATE: "0"
       OPENAI_BASE_URL: http://127.0.0.1:9
