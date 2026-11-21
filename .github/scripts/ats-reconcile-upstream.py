@@ -151,6 +151,18 @@ def main() -> None:
     test_path.write_text(test_source.replace(legacy, ""))
     subprocess.run(["git", "add", "--", str(test_path)], check=True)
     print("RECONCILED MCP inline tool-list test: retained exact 251-entry and exclusion checks")
+    # The real-process handover test's drain can take over Vitest's default
+    # 30-second afterAll hook limit even when every journey assertion passed.
+    # Bound its teardown explicitly to 90 seconds, without changing runtime.
+    journey = Path("server/src/__tests__/legacy-review-handover.integration.test.ts")
+    journey_text = journey.read_text()
+    original_hook_end = '  });\n  it("Hermes delivers, Lead requests changes, Hermes corrects, Lead accepts, owner approves, parent unblocks"'
+    bounded_hook_end = '  }, 90_000);\n  it("Hermes delivers, Lead requests changes, Hermes corrects, Lead accepts, owner approves, parent unblocks"'
+    if journey_text.count(original_hook_end) != 1:
+        raise RuntimeError("Unexpected legacy handover teardown hook layout")
+    journey.write_text(journey_text.replace(original_hook_end, bounded_hook_end))
+    subprocess.run(["git", "add", "--", str(journey)], check=True)
+    print("RECONCILED handover fixture: bounded 90-second cleanup afterAll")
     subprocess.run(["git", "diff", "--cached", "--check"], check=True)
     print("MERGE TEXT PASS: all known conflict markers resolved in an ephemeral checkout.")
     print("NO COMMIT/PUSH. Do not treat this as production readiness.")
