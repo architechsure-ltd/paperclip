@@ -75,6 +75,7 @@ import { filterResolvedGitHubConnectionsForRun } from "../git-credentials.js";
 import type {
   AdapterRuntimeMcpAccess,
   AdapterRuntimeMcpServer,
+  AdapterRuntimeMcpToolPolicy,
   AdapterRuntimeToolAccess,
 } from "../../adapters/index.js";
 import { createRuntimeToolsToken } from "../../runtime-tools-token.js";
@@ -93,6 +94,7 @@ import {
 } from "../secrets.js";
 import { createToolGatewayService } from "../tool-gateway.js";
 import { toolAccessService } from "../tool-access.js";
+import { projectToolDefinitions } from "../project-tools.js";
 import {
   buildDocumentReviewContext,
   buildPlanReviewContext,
@@ -792,6 +794,8 @@ export async function resolveRunScopedMentionedSkillKeys(input: {
 
 
 export interface WakeupOptions {
+  /** Internal resume of a transactionally retained policy-stage wake. */
+  executionStageRequestId?: string;
   /** Internal durable case assignment receipt. Never accepted from public wake payloads. */
   durableCaseHandoffRequest?: { handoffId: string; wakeupRequestId: string; issueId: string; expectedIssueStatusVersion: number };
   /** Set only by authenticated board wake routes; never copied from caller payloads. */
@@ -861,6 +865,7 @@ type ManagedMcpGatewayRunConfig = {
     endpointPath: string;
     bearerToken: string;
     tokenPrefix: string;
+    tools: AdapterRuntimeMcpToolPolicy[];
   }>;
 };
 
@@ -1236,6 +1241,10 @@ export async function buildPaperclipRuntimeMcpServers(input: {
     },
     actor: { agentId: input.agent.id },
   });
+  const tools = await service.listRuntimeToolPoliciesForNamedGateway({
+    gatewayId: gateway!.id,
+    bearerToken: token.token,
+  });
 
   return [
     {
@@ -1243,6 +1252,7 @@ export async function buildPaperclipRuntimeMcpServers(input: {
       url: `${paperclipApiBaseUrl()}/mcp/gateways/${gateway!.gatewayPublicId}`,
       token: token.token,
       connectionId: `assignment:${assignmentDigest}`,
+      tools,
     },
   ];
 }
@@ -1251,9 +1261,15 @@ export function createAdapterRuntimeMcpAccess(
   servers: AdapterRuntimeMcpServer[],
 ): AdapterRuntimeMcpAccess | undefined {
   if (servers.length === 0) return undefined;
-  const snapshot = servers.map((server) => Object.freeze({ ...server }));
+  const snapshot = servers.map((server) => Object.freeze({
+    ...server,
+    tools: server.tools?.map((tool) => ({ ...tool })),
+  }));
   return Object.freeze({
-    getServers: () => snapshot.map((server) => ({ ...server })),
+    getServers: () => snapshot.map((server) => ({
+      ...server,
+      tools: server.tools?.map((tool) => ({ ...tool })),
+    })),
   });
 }
 
@@ -1289,6 +1305,48 @@ export function createAdapterRuntimeToolAccess(input: {
     expiresAt: minted.expiresAt,
     tools: CONNECTION_RUNTIME_TOOL_NAMES,
   });
+}
+
+export function buildBuiltinRuntimeMcpServers(input: {
+  runtimeTools?: AdapterRuntimeToolAccess;
+  includeRuntimeTools: boolean;
+  project?: {
+    url: string;
+    token: string;
+    workMode: string;
+  };
+}): AdapterRuntimeMcpServer[] {
+  const servers: AdapterRuntimeMcpServer[] = [];
+  if (input.project) {
+    servers.push({
+      name: "Paperclip projects",
+      url: input.project.url,
+      token: input.project.token,
+      connectionId: "paperclip-project-tools",
+      // tools/list on this run-bound endpoint is already narrowed by work mode.
+      // Each call re-enters the authenticated API and its normal authorization.
+      tools: projectToolDefinitions(input.project.workMode, true).map((tool) => ({
+        name: tool.name,
+        approvalMode: "unattended",
+      })),
+    });
+  }
+  if (input.runtimeTools && input.includeRuntimeTools) {
+    servers.push({
+      name: "Paperclip connections",
+      url: input.runtimeTools.mcpEndpoint,
+      token: input.runtimeTools.bearerToken,
+      connectionId: "paperclip-runtime-tools",
+      // The runtime contract is minted only for the responsible user and lists
+      // the operations that endpoint authorizes. connection_request can create
+      // a human setup card but cannot grant or approve access itself.
+      tools: input.runtimeTools.tools.map((name) => ({
+        name,
+        approvalMode: "unattended",
+      })),
+    });
+  }
+  return servers;
 }
 
 const MANAGED_MCP_LOCAL_ADAPTERS = new Set(["codex_local"]);
@@ -1558,6 +1616,10 @@ export async function createManagedMcpRunConfig(input: {
       },
       actor: { agentId: input.agent.id },
     });
+    const tools = await service.listRuntimeToolPoliciesForNamedGateway({
+      gatewayId: gateway.id,
+      bearerToken: token.token,
+    });
     managedGateways.push({
       id: gateway.id,
       name: gateway.name,
@@ -1566,6 +1628,7 @@ export async function createManagedMcpRunConfig(input: {
       endpointPath: `/mcp/gateways/${gateway.gatewayPublicId}`,
       bearerToken: token.token,
       tokenPrefix: token.tokenPrefix,
+      tools,
     });
   }
 

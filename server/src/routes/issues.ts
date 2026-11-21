@@ -1,4 +1,5 @@
 import { listStalledDependencies } from "../services/recovery/blocker-stall-wakeups.js";
+import { saveExecutionStageWake } from "../services/execution-stage-wake.js";
 import { confirmMcpAttachmentCleanup, recordMcpAttachmentCleanup, type McpAttachmentCleanup } from "../services/public-mcp/upload-cleanup.js";
 import { notifyDeferredExecutionWork } from "../services/deferred-execution-notifications.js";
 import { notifyNativeRecoveryNotices } from "../services/native-recovery-notice-notifications.js";
@@ -10256,6 +10257,42 @@ export function issueRoutes(
           eq(issueRecoveryActions.sourceIssueId, lockedIssue.id),
           actionId ? eq(issueRecoveryActions.id, actionId) : inArray(issueRecoveryActions.status, ["active", "escalated"]),
         )).limit(1).for("update");
+        if (workspaceRepairAction && executionReconciliation && outcome === "restored" &&
+            sourceIssueStatus === "in_review" && lockedIssue.status === "in_review" &&
+            workspaceRepairAction.cause === "legacy_execution_requires_reconciliation" &&
+            workspaceRepairAction.fingerprint === `legacy-execution:${executionReconciliation.runId}` &&
+            (["active", "escalated"].includes(workspaceRepairAction.status) ||
+              (workspaceRepairAction.status === "resolved" &&
+                ((workspaceRepairAction.evidence.automaticRecovery as { replay?: string } | undefined)?.replay === "blocked" ||
+                  workspaceRepairAction.evidence.reviewHandoverOnly === true))) &&
+            !hasRequiredWorkspaceRecovery(workspaceRepairAction.evidence)) {
+          assertBoard(req);
+          await requireRecoveryActionAuthority(req, lockedIssue, issueRecoveryActionReadModel(workspaceRepairAction),
+            { source: "recovery_action_resolution" });
+          await validateExecutionReconciliation({ db: tx as unknown as Db,
+            companyId: lockedIssue.companyId, issueId: lockedIssue.id, agentId: lockedIssue.assigneeAgentId,
+            sourceRunId: workspaceRepairAction.evidence.runId, decision: executionReconciliation,
+            reviewHandoverOnly: true,
+          });
+          await notifyDeferredExecutionWork(tx, { companyId: lockedIssue.companyId });
+          const [recoveryAction] = await tx.update(issueRecoveryActions).set({ status: "resolved", outcome: "restored",
+            resolutionNote: resolutionNote ?? null, resolvedAt: new Date(), updatedAt: new Date(),
+            evidence: { ...workspaceRepairAction.evidence,
+              priorAutomaticRecovery: workspaceRepairAction.evidence.priorAutomaticRecovery ?? workspaceRepairAction.evidence.automaticRecovery,
+              automaticRecovery: undefined,
+              executionReconciliation: { ...executionReconciliation, actorId: actor.actorId, recordedAt: new Date().toISOString() },
+              continuationDelivery: "not_requested", reviewHandoverOnly: true },
+          }).where(eq(issueRecoveryActions.id, workspaceRepairAction.id)).returning();
+          const stageWake = buildExecutionStageWakeup({ issueId: lockedIssue.id, previousState: null,
+            nextState: parseIssueExecutionState(lockedIssue.executionState), interruptedRunId: executionReconciliation.runId,
+            requestedByActorType: actor.actorType, requestedByActorId: actor.actorId });
+          if (stageWake) await saveExecutionStageWake(tx as unknown as Db, lockedIssue, stageWake, executionReconciliation.runId);
+          await logActivity(tx as unknown as Db, { companyId: lockedIssue.companyId, actorType: actor.actorType,
+            actorId: actor.actorId, action: "issue.recovery_action_resolved", entityType: "issue", entityId: lockedIssue.id,
+            details: { recoveryActionId: workspaceRepairAction.id, reviewHandoverOnly: true, sourceRunId: executionReconciliation.runId },
+          });
+          return { issue: lockedIssue, recoveryAction, chatRetry: null, workspaceRepairOnly: true };
+        }
         if (workspaceRepairAction && hasRequiredWorkspaceRecovery(workspaceRepairAction.evidence)) {
           assertBoard(req);
           await requireRecoveryActionAuthority(req, lockedIssue, issueRecoveryActionReadModel(workspaceRepairAction),
@@ -15173,18 +15210,22 @@ export function issueRoutes(
           agentId: existing.assigneeAgentId,
         });
         const runToStopForReassignment = await resolveActiveIssueRun(existing);
-        const isHumanSelfHandoff =
+        const isLegacySelfHandoff =
           req.actor.type === "agent" &&
-          req.actor.source === "agent_jwt" &&
-          nextAssigneeAgentId === null &&
-          typeof nextAssigneeUserId === "string" &&
+          // Gateway agents can use an agent key with a run header. The header
+          // alone is not authority: require the exact active task, agent and
+          // company below, after the normal mutation/run authorization checks.
+          ((transition.workflowControlledAssignment &&
+            (req.actor.source === "agent_jwt" || req.actor.source === "agent_key")) ||
+            (req.actor.source === "agent_jwt" &&
+              nextAssigneeAgentId === null && typeof nextAssigneeUserId === "string")) &&
           req.actor.agentId === existing.assigneeAgentId &&
           runToStopForReassignment?.runtimeMode === "legacy" &&
           runToStopForReassignment.id === req.actor.runId &&
           runToStopForReassignment.agentId === req.actor.agentId &&
           runToStopForReassignment.companyId === existing.companyId &&
           runToStopForReassignment.contextSnapshot?.issueId === existing.id;
-        if (runToStopForReassignment && !isHumanSelfHandoff) {
+        if (runToStopForReassignment && !isLegacySelfHandoff) {
           let cancelled: Awaited<ReturnType<typeof heartbeat.cancelRun>> = null;
           try {
             cancelled = await heartbeat.cancelRun(
@@ -15476,6 +15517,7 @@ export function issueRoutes(
         ? await sourceTrustForActorWrite(existing, actor)
         : undefined;
       const shouldUseTransactionalIssueUpdate =
+        Boolean(transition.workflowControlledAssignment) ||
         Boolean(commentAttachmentIds?.length) ||
         commentWithAdapterOverrides ||
         Boolean(decision) ||
@@ -15543,6 +15585,18 @@ export function issueRoutes(
             }
 
             await persistReviewTransitionActivity(tx, updated);
+            if (transition.workflowControlledAssignment) {
+              const stageWake = buildExecutionStageWakeup({
+                issueId: updated.id,
+                previousState: parseIssueExecutionState(existing.executionState),
+                nextState: parseIssueExecutionState(updated.executionState),
+                interruptedRunId,
+                requestedByActorType: actor.actorType,
+                requestedByActorId: actor.actorId,
+              });
+              if (stageWake) await saveExecutionStageWake(tx as unknown as Db, updated, stageWake,
+                interruptedRunId ?? actor.runId ?? null);
+            }
 
             return updated;
           });
@@ -16407,7 +16461,9 @@ export function issueRoutes(
           });
         };
 
-        if (executionStageWakeup && deferWakeForGoal !== true) {
+        if (executionStageWakeup && transition.workflowControlledAssignment) {
+          // The issue transaction retained this stage wake. Cleanup/restart delivery owns it.
+        } else if (executionStageWakeup && deferWakeForGoal !== true) {
           addWakeup(executionStageWakeup.agentId, executionStageWakeup.wakeup);
         } else if (
           assigneeChanged &&

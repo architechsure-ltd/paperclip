@@ -26,7 +26,7 @@ import type {
 import { createSessionReuseStore } from "./session-reuse-store.js";
 
 /** The agent child's identity, as the runtime reports it on each spawn. */
-export type AcpxAgentProcessIdentity = { pid: number; startedAt: string };
+export type AcpxAgentProcessIdentity = { pid: number; processGroupId?: number | null; startedAt: string };
 
 /**
  * The mutable spawn-callback target and the last spawn identity a warm runtime

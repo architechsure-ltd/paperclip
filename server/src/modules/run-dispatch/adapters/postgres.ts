@@ -63,7 +63,7 @@ import {
   continuationSummaryParksExecutor,
   getIssueContinuationSummaryDocument,
 } from "../../../services/issue-continuation-summary.js";
-import { parseIssueExecutionState } from "../../../services/issue-execution-policy.js";
+import { executionStageWakeIsCurrent, parseIssueExecutionState } from "../../../services/issue-execution-policy.js";
 import { decideQueuedRunStaleness, decideScheduledRetryGate } from "../domain/policy.js";
 import type {
   QueuedRunFacts,
@@ -674,6 +674,10 @@ export function createPostgresRunDispatchAdapter(
       pendingResponse: issue && (input.conversationContinuation || retryReason === "interrupted_preparation" || context.connectionIntentResolution === "existing_connection")
         ? await connectionContinuationPendingResponse(dbOrTx as unknown as Db, issue, input.responsibleUserId, input.runId)
         : null,
+      policyStageCurrent: !context.executionStageDelivery || Boolean(issue && executionStageWakeIsCurrent(issue, {
+        companyId: input.companyId, agentId: input.agentId,
+        payload: { issueId, executionStageDelivery: context.executionStageDelivery },
+      })),
       issueFound: issue !== null,
       issueStatus: issue?.status ?? null,
       issueAssigneeAgentId: issue?.assigneeAgentId ?? null,

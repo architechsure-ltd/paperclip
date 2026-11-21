@@ -1,3 +1,4 @@
+import { resumeExecutionStageWakes } from "../execution-stage-wake.js";
 import { instanceSettingsService } from "../instance-settings.js";
 import { writeDeferredExecutionWait } from "../deferred-execution-wait.js";
 import type { DeferredReceiptRecoveryOptions } from "../deferred-execution-notifications.js";
@@ -855,6 +856,7 @@ export function createHeartbeatRunControl(db: Db, dependencies: HeartbeatRunCont
 
   async function resumeExecutionWaitComments(scope: DeferredReceiptRecoveryOptions = {}) {
     if ((await getSchedulingSuppression()).suppressed) return;
+    await resumeExecutionStageWakes(db, enqueueWakeup, scope);
     await reconcileTaskChatRetryReceipts(db, scope);
     const retries = await db.select({ id: agentWakeupRequests.id, companyId: agentWakeupRequests.companyId,
       conversationAgentId: issues.conversationAgentId })

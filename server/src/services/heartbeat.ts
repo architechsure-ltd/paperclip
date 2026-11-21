@@ -1,4 +1,5 @@
 import { registerHeldPreparationResumer } from "./interrupted-preparation-hold-settlement.js";
+import { notifyDeferredExecutionWork } from "./deferred-execution-notifications.js";
 import { resolveProviderApiPlacement } from "./native-runtime/provider-api-placement.js";
 import { isProcessRunAdmissionClosed } from "./heartbeat/run-admission.js";
 import type { StopInvocationOptions } from "./heartbeat/run-control.js";
@@ -4076,12 +4077,15 @@ export function heartbeatService(
             logger.warn({ err: error, runId: run.id }, "failed to acknowledge Stop after native process settlement");
           });
         }
-        await db.update(heartbeatRuns).set({
-          executionStage: sql`case when ${heartbeatRuns.status} = 'cancelled' then 'settled' else ${heartbeatRuns.executionStage} end`,
-          controllerLeaseExpiresAt: null,
-        }).where(and(eq(heartbeatRuns.id, run.id), eq(heartbeatRuns.runtimeMode, "legacy"),
-          eq(heartbeatRuns.controllerBootId, legacyControllerBootId),
-          inArray(heartbeatRuns.status, ["succeeded", "failed", "cancelled", "timed_out", "interrupted"])));
+        await db.transaction(async tx => {
+          await notifyDeferredExecutionWork(tx, { companyId: run.companyId });
+          await tx.update(heartbeatRuns).set({
+            executionStage: sql`case when ${heartbeatRuns.status} = 'cancelled' then 'settled' else ${heartbeatRuns.executionStage} end`,
+            controllerLeaseExpiresAt: null,
+          }).where(and(eq(heartbeatRuns.id, run.id), eq(heartbeatRuns.runtimeMode, "legacy"),
+            eq(heartbeatRuns.controllerBootId, legacyControllerBootId),
+            inArray(heartbeatRuns.status, ["succeeded", "failed", "cancelled", "timed_out", "interrupted"])));
+        });
 
         latestRun = await getRun(run.id).catch(() => null);
         if (latestRun && isHeartbeatRunTerminalStatus(latestRun.status) && !isNativeRunnerOwnershipHeld(latestRun)) {

@@ -267,6 +267,10 @@ describe("decideScheduledRetryGate", () => {
 });
 
 describe("decideQueuedRunStaleness", () => {
+  it("rejects a saved policy wake from an older decision even when the participant is unchanged", () => {
+    expect(decideQueuedRunStaleness({ ...baseStalenessFacts(), policyStageCurrent: false }, NOW))
+      .toMatchObject({ stale: true, errorCode: "issue_review_participant_changed" });
+  });
   it("is not stale when every rule passes", () => {
     expect(decideQueuedRunStaleness(baseStalenessFacts(), NOW)).toEqual({
       stale: false,

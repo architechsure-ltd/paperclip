@@ -1,4 +1,5 @@
 import { DELIVERY_QUEUES, notifyDeliveryWork } from "./delivery-work-notifications.js";
+import { isSettledLegacyReviewHandover } from "./legacy-review-handover.js";
 import { notifyNativeStatusReassessment } from "./native-status-reassessment-notifications.js";
 import { notifyUnsafeWorkspaceExportRecovery } from "./unsafe-workspace-export-notifications.js";
 import { notifyInstructionCollection } from "./instruction-collection-notifications.js";
@@ -101,7 +102,8 @@ export function legacyExecutionNeedsReconciliation(
 export async function legacyExecutionNeedsReconciliationWithEvidence(db: Db, run: Run): Promise<boolean> {
   if (await isInterruptedNativePreparation(db, run)) return false;
   return await hasUnrestoredRemoteWorkspace(db, run) ||
-    (legacyExecutionNeedsReconciliation(run) && !(await isPreDispatchReviewWaitVerified(db, run))
+    (legacyExecutionNeedsReconciliation(run) && !(await isSettledLegacyReviewHandover(db, run))
+      && !(await isPreDispatchReviewWaitVerified(db, run))
       && !(await isPreDispatchExecutionWaitVerified(db, run)));
 }
 

@@ -108,6 +108,36 @@ describe("deferred receipt durable dispatch", () => {
       contextSnapshot: { issueId: issue.id }, resultJson: { executionRecovery: { kind: "bootstrap", providerWorkStarted: false } } }).returning();
     return { companyId, agent, issue, source, actorId };
   }
+  it("reconstructs stage receipts on restart and wakes on the first new stage without idle scans", async () => {
+    const f = await fixture();
+    const save = async () => {
+      const id = randomUUID();
+      await db.transaction(async tx => {
+        await notifyDeferredExecutionWork(tx, { companyId: f.companyId, requestId: id });
+        await tx.insert(agentWakeupRequests).values({ id, companyId: f.companyId, agentId: f.agent.id,
+          source: "assignment", reason: "execution_review_requested", status: "deferred_issue_execution",
+          payload: { issueId: f.issue.id, executionStageDelivery: { schema: "paperclip.execution-stage-wake.v1" } } });
+      });
+      return id;
+    };
+    const first = await save();
+    const resume = vi.fn(async (scope: { companyId?: string; requestId?: string }) => {
+      if (!scope.requestId) return;
+      await db.update(agentWakeupRequests).set({ status: "skipped", finishedAt: new Date() }).where(eq(agentWakeupRequests.id, scope.requestId));
+    });
+    const work = registerDeferredReceiptWork(db, coordinator, {
+      resume, settleTaskChat: async () => {}, createNativeBatch: () => async () => {}, schedulingSuppressed: async () => false,
+    }, () => !drain);
+    extraStops.push(() => work.stop());
+    await work.ready;
+    await waitForReal(() => expect(resume).toHaveBeenCalledWith(expect.objectContaining({ requestId: first })), { timeout: 10_000 });
+    await quiet();
+    const second = await save();
+    await waitForReal(() => expect(resume).toHaveBeenCalledWith(expect.objectContaining({ requestId: second })), { timeout: 10_000 });
+    await quiet();
+    expect(resume).toHaveBeenCalledTimes(2);
+  });
+
   async function quiet() {
     await Promise.allSettled([...passes]); await heartbeat.drainActiveRunExecutions();
     await waitForReal(async () => {

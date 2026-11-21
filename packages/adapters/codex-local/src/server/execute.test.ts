@@ -57,7 +57,7 @@ vi.mock("@paperclipai/adapter-utils/execution-target", async () => {
   };
 });
 
-import { execute } from "./execute.js";
+import { execute, readManagedMcpToolPolicySnapshot } from "./execute.js";
 
 // Mirror the sandbox core's restore closure: capture the assets `execute()`
 // declares, then during teardown invoke each asset's `restore` with an injected
@@ -81,6 +81,25 @@ prepareAdapterExecutionTargetRuntime.mockImplementation(async (input: { assets?:
       }
     },
   };
+});
+
+describe("Codex managed MCP tool-policy snapshots", () => {
+  it("distinguishes a missing snapshot from an intentionally empty authorised set", () => {
+    expect(() => readManagedMcpToolPolicySnapshot(undefined, "missing"))
+      .toThrow('Managed MCP gateway "missing" is missing its effective tool-policy snapshot');
+    expect(() => readManagedMcpToolPolicySnapshot([
+      { name: "read_item", approvalMode: "allow" },
+    ], "invalid"))
+      .toThrow('Managed MCP gateway "invalid" has an invalid tool policy at index 0');
+    expect(readManagedMcpToolPolicySnapshot([], "empty")).toEqual([]);
+    expect(readManagedMcpToolPolicySnapshot([
+      { name: "read_item", approvalMode: "unattended" },
+      { name: "update_item", approvalMode: "prompt" },
+    ], "governed")).toEqual([
+      { name: "read_item", approvalMode: "unattended" },
+      { name: "update_item", approvalMode: "prompt" },
+    ]);
+  });
 });
 
 describe("codex execute — outbound auth copy-back restore contribution", () => {

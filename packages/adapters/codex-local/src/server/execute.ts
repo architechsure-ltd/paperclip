@@ -312,6 +312,26 @@ function fallbackModeUsesFreshSession(mode: CodexTransientFallbackMode | null): 
   return mode === "fresh_session" || mode === "fresh_session_safer_invocation";
 }
 
+export function readManagedMcpToolPolicySnapshot(
+  value: unknown,
+  gatewayName: string,
+): ManagedCodexMcpGateway["tools"] {
+  if (!Array.isArray(value)) {
+    throw new Error(`Managed MCP gateway "${gatewayName}" is missing its effective tool-policy snapshot`);
+  }
+  return value.map((rawTool, index) => {
+    const tool = parseObject(rawTool);
+    const name = asString(tool.name, "").trim();
+    const approvalMode = tool.approvalMode;
+    if (!name || (approvalMode !== "unattended" && approvalMode !== "prompt")) {
+      throw new Error(
+        `Managed MCP gateway "${gatewayName}" has an invalid tool policy at index ${index}`,
+      );
+    }
+    return { name, approvalMode };
+  });
+}
+
 function managedMcpGatewaysFromContext(context: Record<string, unknown>): ManagedCodexMcpGateway[] {
   const managedMcp = parseObject(context.paperclipManagedMcp);
   if (managedMcp.managedMcpOnly !== true) return [];
@@ -323,7 +343,8 @@ function managedMcpGatewaysFromContext(context: Record<string, unknown>): Manage
       const endpointPath = asString(gateway.endpointPath, "").trim();
       const bearerToken = asString(gateway.bearerToken, "").trim();
       if (!name || !endpointPath || !bearerToken) return null;
-      return { name, endpointPath, bearerToken };
+      const tools = readManagedMcpToolPolicySnapshot(gateway.tools, name);
+      return { name, endpointPath, bearerToken, tools };
     })
     .filter((gateway): gateway is ManagedCodexMcpGateway => Boolean(gateway));
 }
@@ -803,6 +824,7 @@ export async function execute(ctx: AdapterExecutionContext): Promise<AdapterExec
       name: server.name,
       endpointPath: server.url,
       bearerToken: server.token,
+      tools: readManagedMcpToolPolicySnapshot(server.tools, server.name),
     }));
     const managedMcpGateways = mergeManagedCodexMcpGateways(
       runtimeMcpGateways,

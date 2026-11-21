@@ -93,6 +93,45 @@ describeEmbeddedPostgres("tool gateway listing memory", () => {
     expect(event?.details).not.toHaveProperty("visibleTools");
   });
 
+  it("derives provider-neutral client approval modes from the effective gateway policy", async () => {
+    const fixture = await createListingFixture(db, 6);
+    // This case exercises the effective policy snapshot, not shared-credential
+    // health. Keep the cached catalog visible if a concurrent health sweep marks
+    // the synthetic remote endpoint unavailable; execution still validates the
+    // responsible user's grant before any per-user tool call.
+    await db.update(toolConnections)
+      .set({ credentialPolicy: "per_user" })
+      .where(eq(toolConnections.id, fixture.connection.id));
+    const service = createToolGatewayService(db);
+    const input = { gatewayId: fixture.namedGateway.id, bearerToken: fixture.token.token };
+    const visible = await service.listToolsForNamedGateway(input);
+    const policies = await service.listRuntimeToolPoliciesForNamedGateway(input);
+
+    expect(policies.map((entry) => entry.name).sort()).toEqual(visible.map((tool) => tool.name).sort());
+    for (const tool of visible) {
+      expect(policies).toContainEqual({
+        name: tool.name,
+        approvalMode: tool.risk === "read" ? "unattended" : "prompt",
+      });
+    }
+    expect(policies.some((entry) => entry.approvalMode === "unattended")).toBe(true);
+    expect(policies.some((entry) => entry.approvalMode === "prompt")).toBe(true);
+    const policiesByName = new Map(policies.map((entry) => [entry.name, entry.approvalMode]));
+    const connectedPolicies = visible.flatMap((tool) =>
+      tool.upstreamToolName?.startsWith("tool_")
+        ? [{ name: tool.upstreamToolName, approvalMode: policiesByName.get(tool.name) }]
+        : [],
+    );
+    expect(connectedPolicies).toEqual([
+      { name: "tool_0000", approvalMode: "prompt" },
+      { name: "tool_0003", approvalMode: "prompt" },
+      { name: "tool_0004", approvalMode: "unattended" },
+      { name: "tool_0005", approvalMode: "unattended" },
+    ]);
+    expect(connectedPolicies.map((entry) => entry.name)).not.toContain("tool_0001");
+    expect(connectedPolicies.map((entry) => entry.name)).not.toContain("tool_0002");
+  });
+
   it("keeps query growth bounded with several connections", async () => {
     const small = await createListingFixture(db, 50, { connectionCount: 4 });
     const large = await createListingFixture(db, 500, { connectionCount: 4 });

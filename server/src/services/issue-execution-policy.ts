@@ -1240,3 +1240,21 @@ export function applyIssueExecutionPolicyTransition(input: TransitionInput): Tra
 export function applyIssueMonitorPolicyTransition(input: TransitionInput): TransitionResult {
   return { patch: applyMonitorTransition(input, {}) };
 }
+
+/** A stage/decision pair distinguishes changes-requested rounds on the same stage. */
+export function executionStageWakeIsCurrent(issue: {
+  id: string; companyId: string; status: string; assigneeAgentId: string | null;
+  assigneeUserId: string | null; executionState: unknown;
+}, wake: { companyId: string; agentId: string; payload: Record<string, unknown> | null }): boolean {
+  const saved = wake.payload?.executionStageDelivery as Record<string, unknown> | undefined;
+  if (saved?.schema !== "paperclip.execution-stage-wake.v1") return false;
+  const state = parseIssueExecutionState(issue.executionState);
+  if (!saved || !state || issue.companyId !== wake.companyId || wake.payload?.issueId !== issue.id ||
+      issue.assigneeAgentId !== wake.agentId || issue.assigneeUserId ||
+      state.currentStageId !== saved.stageId || state.lastDecisionId !== saved.lastDecisionId ||
+      state.status !== saved.stateStatus) return false;
+  return state.status === "pending"
+    ? issue.status === "in_review" && state.currentParticipant?.type === "agent" && state.currentParticipant.agentId === wake.agentId
+    : state.status === "changes_requested" && issue.status === "in_progress" &&
+      state.returnAssignee?.type === "agent" && state.returnAssignee.agentId === wake.agentId;
+}

@@ -30,8 +30,8 @@ function readTrustedPrWorkflow() {
   const caller = readFileSync(prCallerWorkflow, "utf8");
   assert.match(
     caller,
-    /^\s+uses: paperclipai\/paperclip\/\.github\/workflows\/pr-trusted\.yml@master\s*$/m,
-    "pr.yml must call the trusted workflow from CODEOWNERS-protected master",
+    /^\s+uses: architechsure-ltd\/paperclip\/\.github\/workflows\/pr-trusted\.yml@[0-9a-f]{40}\s*$/m,
+    "pr.yml must call an immutable workflow revision in the maintained fork",
   );
   // Validate proposed workflow changes locally; CI executes the merged master version.
   return readFileSync(trustedPrWorkflow, "utf8");
@@ -169,7 +169,7 @@ test("shard arguments are validated", () => {
   }
 });
 
-test("pr.yml calls the trusted PR workflow from master", () => {
+test("pr.yml calls an immutable trusted PR workflow in the fork", () => {
   assert.ok(readTrustedPrWorkflow().length > 0);
 });
 
@@ -230,7 +230,7 @@ test("runner authorization uses reserved capacity and executes metadata checks o
 test("the trusted PR workflow limits full CI to merge-relevant stack layers", () => {
   const workflow = readFileSync(trustedPrWorkflow, "utf8");
   const jobs = readWorkflowJobs(workflow);
-  assert.match(jobs.get("gate"), /uses: paperclipai\/paperclip\/\.github\/workflows\/ci-routing\.yml@master/);
+  assert.match(jobs.get("gate"), /uses: architechsure-ltd\/paperclip\/\.github\/workflows\/ci-routing\.yml@1c863d65543eae25c7f1a58f30c2ec959e82ad58/);
   const gate = readWorkflowJobs(readFileSync(routingWorkflow, "utf8")).get("gate");
 
   assert.match(gate, /^ {6}full_ci: \$\{\{ steps\.scope\.outputs\.full_ci \}\}$/m);

@@ -130,6 +130,8 @@ export type StalenessDecision =
     };
 
 export type QueuedRunFacts = {
+  /** Exact retained policy stage and decision generation still match. */
+  policyStageCurrent?: boolean;
   pendingResponse?: "interaction" | "approval" | null;
   /** Rechecked for automatic native replacements immediately before dispatch. */
   dependenciesBlocked?: DependencyBlockFacts | null;
@@ -502,6 +504,11 @@ export function decideQueuedRunStaleness(
   facts: QueuedRunFacts,
   _now: Date,
 ): StalenessDecision {
+  if (facts.policyStageCurrent === false) return {
+    stale: true, errorCode: "issue_review_participant_changed",
+    reason: "Cancelled because the saved execution stage or decision changed",
+    details: { issueId: facts.issueId },
+  };
   if (!facts.issueFound) {
     return {
       stale: true,

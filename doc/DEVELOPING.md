@@ -5194,3 +5194,61 @@ failure remains retryable even when the clone directory already exists. Later
 workspace saves retain repository coverage only for directories present in the
 captured archive. Deleted checkouts lose coverage and can be acquired again.
 A failed batch upload marks the affected repository rows as needing repair.
+
+### Legacy policy review handovers
+
+A legacy agent can submit its own active task for policy review without cancelling
+the HTTP request that records the submission. The provider must still finish.
+The issue transition retains the next stage wake in `agent_wakeup_requests` in the
+same transaction. The existing deferred-receipt worker delivers that wake after
+source execution and environment cleanup settle. It rechecks the stage, decision
+and participant under the issue lock. A restart uses the same saved receipt.
+
+For an existing resolved `legacy_execution_requires_reconciliation` action with
+a no-replay hold, a board operator can use the existing resolution endpoint:
+
+```http
+POST /api/issues/{issueId}/recovery-actions/resolve
+Content-Type: application/json
+
+{
+  "actionId": "<exact recovery action UUID>",
+  "outcome": "restored",
+  "sourceIssueStatus": "in_review",
+  "executionReconciliation": {
+    "runId": "<exact stopped source UUID>",
+    "providerStopped": true,
+    "actionOutcome": "completed",
+    "outcomeEvidence": "<observed outcomes and evidence for all external actions>"
+  }
+}
+```
+
+Use this path only after the operator verifies the stopped provider and external
+actions. The server requires an acknowledged cancellation, a committed policy
+review handover audit record and completed resource release. It rejects forced
+stops and workspace recovery obligations. The task stays in its current review
+stage. The stopped source is not replayed. The action retains its original
+automatic-recovery evidence under `priorAutomaticRecovery`, plus the operator
+decision and audit event. No database evidence needs manual deletion.
+
+Focused regression commands:
+
+```sh
+pnpm exec vitest run server/src/services/legacy-execution-recovery.test.ts server/src/__tests__/execution-stage-wake.test.ts server/src/__tests__/legacy-review-handover.integration.test.ts server/src/__tests__/issue-execution-policy-routes.test.ts
+```
+
+The policy-controlled self-handover exemption accepts both run JWTs and authenticated
+agent keys. Ordinary human reassignment retains its existing run-JWT-only exemption.
+An agent-key run header is not authority by itself. The normal mutation path
+validates the persisted run against the authenticated agent and company first.
+The exemption then requires the exact active legacy run, task context and current
+assignee. A mismatch retains the normal cancellation path. This does not change
+cancellation acknowledgement, resource release, durable wake admission or recovery.
+
+The assembled journey tests both credential types. It rejects invalid credentials,
+a missing run header, an unknown run and another agent's run before any mutation.
+It uses the Hermes adapter with a deterministic CLI fixture
+and a process fixture for the Lead. It proves authenticated HTTP handovers,
+provider-process ordering, changes requested, owner approval and dependency
+release. It does not qualify live Hermes or Codex model service behavior.

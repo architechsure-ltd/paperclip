@@ -3,6 +3,7 @@ import { CONTEXT_COMPACTION_WAKE_REASON, ContextCompactionError, isContextCompac
 import { isProcessRunAdmissionClosed } from "./run-admission.js";
 import { deliveredQueuedCommentIds } from "../queued-comment-delivery.js";
 import { deferredWorkIntentWait } from "../work-intent-outbox.js";
+import { executionStageWakeReadiness } from "../execution-stage-wake.js";
 import { createHeartbeatTimerPolicy } from "./timer-policy.js";
 import { notifyExecutionRunWork } from "../execution-control-notifications.js";
 import { PersistedExecutionWaitRefusal, writeDeferredExecutionWait } from "../deferred-execution-wait.js";
@@ -3039,21 +3040,30 @@ export function createHeartbeatQueue(db: Db, dependencies: HeartbeatQueueDepende
               eq(agentWakeupRequests.agentId, agentId), eq(agentWakeupRequests.status, "deferred_issue_execution"),
               // A user message can join a queue originally created by a
               // system wake. Admission validates the saved user comment or board click.
-              (opts.queuedCommentInterruptId ?? opts.queuedCommentRequestId) === executionWaitRequestId
+              (opts.executionStageRequestId ?? opts.queuedCommentInterruptId ?? opts.queuedCommentRequestId) === executionWaitRequestId
                 ? undefined : eq(agentWakeupRequests.requestedByActorType,
                     durableRequest ? opts.requestedByActorType ?? "" : "user"),
               opts.queuedCommentInterruptId === executionWaitRequestId
                 ? sql`${agentWakeupRequests.payload}->'queuedCommentInterrupt'->>'actorId' = ${opts.requestedByActorId ?? ""}`
-                : opts.queuedCommentRequestId === executionWaitRequestId ? undefined
+                : (opts.executionStageRequestId ?? opts.queuedCommentRequestId) === executionWaitRequestId ? undefined
                   : eq(agentWakeupRequests.requestedByActorId, opts.requestedByActorId ?? ""),
               sql`${agentWakeupRequests.payload}->>'issueId' = ${issueId}`,
             ));
             // The issue lock serializes cleanup callbacks and periodic workers.
             // An adopted, discarded, or edited receipt is no longer authority.
-            if (!pending || (!opts.taskRetryRequestId && !(wakeCommentId && queuedCommentIdsFromWakePayload(pending.payload).includes(wakeCommentId)) &&
+            if (!pending || (!opts.executionStageRequestId && !opts.taskRetryRequestId && !(wakeCommentId && queuedCommentIdsFromWakePayload(pending.payload).includes(wakeCommentId)) &&
                 !(opts.queuedCommentInterruptId && await readQueuedInteractionResponse(tx as unknown as Db,
                   agent.companyId, issueId, pending.payload)))) {
               return { kind: "deferred" as const };
+            }
+            if (opts.executionStageRequestId) {
+              const [currentIssue] = await tx.select().from(issues).where(and(
+                eq(issues.companyId, agent.companyId), eq(issues.id, issueId),
+              ));
+              if (pending.id !== opts.executionStageRequestId || pending.runId || !currentIssue ||
+                  await executionStageWakeReadiness(tx as unknown as Db, currentIssue, pending) !== "ready")
+                return { kind: "deferred" as const };
+              enrichedContextSnapshot.executionStageDelivery = pending.payload?.executionStageDelivery;
             }
             if (opts.taskRetryRequestId && durableRequest?.failedRunRetry) {
               if (pending.id !== durableRequest.id || pending.payload?.taskRetryRequestId !== opts.taskRetryRequestId)
@@ -4512,10 +4522,10 @@ export function createHeartbeatQueue(db: Db, dependencies: HeartbeatQueueDepende
           };
           // A deferred durable chat wake already owns this ID and source.
           // Promote that receipt in the same transaction as its successor.
-          const wakeupRequest = durableRequest && executionWaitRequestId === durableRequest.id
+          const wakeupRequest = (opts.executionStageRequestId || (durableRequest && executionWaitRequestId === durableRequest.id))
             ? await tx.update(agentWakeupRequests).set({
                 payload, status: "queued", error: null, finishedAt: null, updatedAt: new Date(),
-              }).where(and(eq(agentWakeupRequests.id, durableRequest.id),
+              }).where(and(eq(agentWakeupRequests.id, opts.executionStageRequestId ?? durableRequest!.id),
                 eq(agentWakeupRequests.companyId, agent.companyId),
                 eq(agentWakeupRequests.status, "deferred_issue_execution"), isNull(agentWakeupRequests.runId)))
                 .returning().then(rows => rows[0])
@@ -4553,6 +4563,7 @@ export function createHeartbeatQueue(db: Db, dependencies: HeartbeatQueueDepende
                       eq(agentWakeupRequests.companyId, issue.companyId),
                       inArray(agentWakeupRequests.agentId, handoffSource ? [agentId, handoffSource.agentId] : [agentId]),
                       eq(agentWakeupRequests.status, "deferred_issue_execution"),
+                      sql`${agentWakeupRequests.payload}->'executionStageDelivery' is null`,
                       sql`${agentWakeupRequests.payload}->>'issueId' = ${issue.id}`,
                       // Chat Retry already pins its complete authorized source
                       // batch. Keep separate board input for its own admission.

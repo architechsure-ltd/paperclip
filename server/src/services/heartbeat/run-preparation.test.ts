@@ -10,8 +10,10 @@ import {
 } from "../heartbeat.js";
 import {
   buildPaperclipRuntimeMcpServers,
+  buildBuiltinRuntimeMcpServers,
   buildPaperclipWakePayload,
   ConfigurationIncompleteFailure,
+  createAdapterRuntimeMcpAccess,
   createHeartbeatRunPreparation,
   resolveExecutionRunAdapterConfig,
   readHeartbeatWakeComments,
@@ -48,6 +50,60 @@ function deferred<T>() {
 const emptyRoutineContext = { routineId: null, env: null, responsibleUserId: null };
 
 describe("heartbeat run preparation module", () => {
+  it("delivers explicit authorised policy snapshots for built-in MCP servers", () => {
+    const runtimeTools = {
+      version: 1 as const,
+      guidance: "Use governed connection tools.",
+      mcpEndpoint: "https://paperclip.example/mcp/runtime-tools",
+      rest: {
+        connectionsSearch: "https://paperclip.example/runtime-tools/connections/search",
+        connectionRequest: "https://paperclip.example/runtime-tools/connections/request",
+      },
+      bearerToken: "runtime-secret",
+      expiresAt: "2026-11-09T14:00:00.000Z",
+      tools: ["connections_search", "connection_request"] as const,
+    };
+    const servers = buildBuiltinRuntimeMcpServers({
+      runtimeTools,
+      includeRuntimeTools: true,
+      project: {
+        url: "https://paperclip.example/api/mcp/project-tools",
+        token: "project-secret",
+        workMode: "standard",
+      },
+    });
+
+    const projects = servers.find((server) => server.connectionId === "paperclip-project-tools")!;
+    expect(projects.tools?.map((tool) => tool.name)).toEqual(expect.arrayContaining([
+      "list_projects",
+      "list_project_repositories",
+      "create_project",
+      "create_task",
+      "set_task_title",
+    ]));
+    expect(projects.tools?.every((tool) => tool.approvalMode === "unattended")).toBe(true);
+    expect(servers.find((server) => server.connectionId === "paperclip-runtime-tools")?.tools).toEqual([
+      { name: "connections_search", approvalMode: "unattended" },
+      { name: "connection_request", approvalMode: "unattended" },
+    ]);
+
+    const access = createAdapterRuntimeMcpAccess(servers)!;
+    const first = access.getServers();
+    first[0]!.tools![0]!.approvalMode = "prompt";
+    expect(access.getServers()[0]!.tools![0]!.approvalMode).toBe("unattended");
+  });
+
+  it("preserves an explicitly empty authorised managed policy set", () => {
+    const access = createAdapterRuntimeMcpAccess([{
+      name: "Empty governed service",
+      url: "https://paperclip.example/mcp/empty",
+      token: "empty-secret",
+      connectionId: "empty-governed-service",
+      tools: [],
+    }]);
+    expect(access?.getServers()[0]!.tools).toEqual([]);
+  });
+
   it("preserves the legacy error class and public preparation functions", () => {
     expect(LegacyConfigurationIncompleteFailure).toBe(ConfigurationIncompleteFailure);
     expect(legacyResolveAdapterConfig).toBe(resolveExecutionRunAdapterConfig);

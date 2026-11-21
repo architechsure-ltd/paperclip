@@ -21,6 +21,7 @@ import {
   PAPERCLIP_WAKE_PAYLOAD_KEY,
   configuredPaperclipApiBaseUrl,
   buildPaperclipRuntimeMcpServers,
+  buildBuiltinRuntimeMcpServers,
   createAdapterRuntimeToolAccess,
   paperclipApiBaseUrl,
   createAdapterRuntimeMcpAccess,
@@ -823,18 +824,17 @@ export async function executeHeartbeatRuntime(db: Db, input: HeartbeatRuntimeExe
       });
       const runtimeToolDelivery =
         adapter.runtimeToolDelivery ?? "invocation_context";
-      if (runtimeTools && runtimeToolDelivery === "native_mcp") {
-        runtimeMcpServers.unshift({
-          name: "Paperclip connections",
-          url: runtimeTools.mcpEndpoint,
-          token: runtimeTools.bearerToken,
-          connectionId: "paperclip-runtime-tools",
-        });
-      }
-      if (authToken && configuredPaperclipApiBaseUrl() && issueRef) {
-        runtimeMcpServers.unshift({ name: "Paperclip projects", url: `${paperclipApiBaseUrl()}/api/mcp/project-tools`,
-          token: authToken, connectionId: "paperclip-project-tools" });
-      }
+      runtimeMcpServers.unshift(...buildBuiltinRuntimeMcpServers({
+        runtimeTools,
+        includeRuntimeTools: runtimeToolDelivery === "native_mcp",
+        project: authToken && configuredPaperclipApiBaseUrl() && issueRef
+          ? {
+              url: `${paperclipApiBaseUrl()}/api/mcp/project-tools`,
+              token: authToken,
+              workMode: issueRef.workMode,
+            }
+          : undefined,
+      }));
       const runtimeMcp = createAdapterRuntimeMcpAccess(runtimeMcpServers);
       if (runtimeTools && runtimeToolDelivery === "invocation_context") {
         adapterContext.paperclipRuntimeTools = runtimeTools;

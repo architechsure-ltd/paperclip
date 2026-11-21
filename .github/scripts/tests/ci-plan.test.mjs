@@ -237,7 +237,7 @@ test("the real routing step uses pinned trusted definitions and defaults to full
     writeFileSync(path.join(directory, "git"), `#!/usr/bin/env node
 const {spawnSync}=require('node:child_process');
 if(process.env.TEST_GIT_FAILURE==='true')process.exit(1);
-const args=process.argv.slice(2).map(a=>a==='https://github.com/paperclipai/paperclip.git'?process.env.TEST_GIT_REPOSITORY:a);
+const args=process.argv.slice(2).map(a=>a==='https://github.com/architechsure-ltd/paperclip.git'?process.env.TEST_GIT_REPOSITORY:a);
 const r=spawnSync(${JSON.stringify(gitBin)},args,{stdio:'inherit'});process.exit(r.status??1);
 `);
     chmodSync(path.join(directory, "git"), 0o755);
@@ -249,7 +249,7 @@ if (endpoint?.endsWith('/git/ref/heads/master')) console.log('a'.repeat(40));
 else if (endpoint?.includes('/contents/')) {
   if (process.env.TEST_FETCH_FAILURE === 'true') process.exit(1);
   const [file, query] = endpoint.split('/contents/')[1].split('?');
-  if (query !== 'ref=' + 'a'.repeat(40)) process.exit(2);
+  if (query !== 'ref=92ec8fbe7c94a434fe2cf2b4bb3d0973946631df') process.exit(2);
   process.stdout.write(fs.readFileSync(path.join(process.env.TEST_TRUSTED_ROOT, file)));
 }
 else process.exit(3);

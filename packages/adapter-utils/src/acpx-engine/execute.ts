@@ -211,7 +211,7 @@ function flushChildStderr(state: ChildStderrState) {
   state.pendingLiveLine = "";
 }
 
-type PaperclipAcpRuntimeOptions = AcpRuntimeOptions & {
+type PaperclipAcpRuntimeOptions = Omit<AcpRuntimeOptions, "onAgentSpawn"> & {
   onAgentSpawn?: (meta: AcpxAgentProcessIdentity) => Promise<void>;
   // Return the current-run parent-context token. It is the `task.run` token
   // during startup and after the turn, and the `agent.turn` token during the
@@ -4551,7 +4551,7 @@ export function createAcpxEngineExecutor(deps: AcpxEngineExecutorOptions = {}) {
             processIdentitySink.localProcess = prepared.processSessionBridge ? undefined : captureLocalProcess(meta.pid);
             await processIdentitySink.current?.({
               pid: meta.pid,
-              processGroupId: null,
+              processGroupId: prepared.processSessionBridge ? null : meta.processGroupId ?? null,
               startedAt: meta.startedAt,
             });
           },
@@ -4746,7 +4746,7 @@ export function createAcpxEngineExecutor(deps: AcpxEngineExecutorOptions = {}) {
           if (handle && cached && processIdentitySink.latest && ctx.onSpawn) {
             await ctx.onSpawn({
               pid: processIdentitySink.latest.pid,
-              processGroupId: null,
+              processGroupId: prepared.processSessionBridge ? null : processIdentitySink.latest.processGroupId ?? null,
               startedAt: processIdentitySink.latest.startedAt,
             });
           }
