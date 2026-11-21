@@ -1,0 +1,69 @@
+name: ATS Upstream Merge Assessment
+
+# Diagnostics only: never push, publish, deploy, or use secrets.
+on:
+  push:
+    branches:
+      - ats/upstream-2026-1117-integration
+    paths:
+      - .github/workflows/ats-upstream-merge-assessment.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  three-way-assessment:
+    name: Assess ATS changes against pinned upstream stable
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout pinned upstream-based integration branch
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          filter: blob:none
+          persist-credentials: false
+
+      - name: Assess merge without altering GitHub or production
+        shell: bash
+        env:
+          EXPECTED_UPSTREAM: c0f132898d2a2677312d8c72096187b27a3d9a38
+          EXPECTED_ATS: 96a712e1968be89701ec7fc9f5ae452dce081914
+        run: |
+          set -euo pipefail
+          git config user.name "ATS read-only assessment"
+          git config user.email "ats-assessment@users.noreply.github.com"
+          git fetch --no-tags origin "$EXPECTED_ATS"
+          git cat-file -e "$EXPECTED_ATS^{commit}"
+          git merge-base --is-ancestor "$EXPECTED_UPSTREAM" HEAD || {
+            echo "::error::Integration branch does not descend from the pinned upstream stable baseline"
+            exit 1
+          }
+          echo "Pinned upstream baseline: $EXPECTED_UPSTREAM"
+          echo "Pinned ATS head: $EXPECTED_ATS"
+          set +e
+          git merge --no-commit --no-ff "$EXPECTED_ATS" > /tmp/ats-merge-output.txt 2>&1
+          rc=$?
+          set -e
+          cat /tmp/ats-merge-output.txt
+          echo "### ATS upstream merge assessment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Upstream stable: \`$EXPECTED_UPSTREAM\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ATS source: \`$EXPECTED_ATS\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$rc" -eq 0 ]; then
+            echo "RESULT: clean automatic three-way merge (NOT committed)" 
+            echo "- Automatic merge: clean (NOT committed)" >> "$GITHUB_STEP_SUMMARY"
+            git diff --cached --stat | tail -n 80
+          elif [ -n "$(git ls-files -u)" ]; then
+            git diff --name-only --diff-filter=U | sort -u > /tmp/ats-conflicts.txt
+            echo "RESULT: content conflicts (NOT committed)"
+            echo "- Automatic merge: needs reconciliation (NOT committed)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Conflicting files: $(wc -l < /tmp/ats-conflicts.txt)" >> "$GITHUB_STEP_SUMMARY"
+            echo '#### Conflicting files' >> "$GITHUB_STEP_SUMMARY"
+            sed 's/^/- \`/;s/$/\`/' /tmp/ats-conflicts.txt >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/ats-conflicts.txt
+          else
+            echo "::error::git merge failed without conflict entries (exit $rc)"
+            exit "$rc"
+          fi
+          echo "No branch updates, pushes, deployments, or paid model calls were performed."
