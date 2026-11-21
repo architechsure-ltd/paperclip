@@ -132,6 +132,25 @@ def main() -> None:
         print(f"RECONCILED {path}: {len(matches)} hunk(s) — semantic validation still required")
     if conflicted_paths():
         raise RuntimeError("Not all git conflicts were resolved")
+    # ATS master still checks the legacy inline '.tools' list on the adapter
+    # MCP server. The pinned upstream runtime intentionally returns only the
+    # gateway endpoint/token; the immutable profile must retain the 251 exact
+    # selectors and exclusions, as verified by the remaining assertions.
+    test_path = Path("server/src/__tests__/heartbeat-runtime-mcp-servers.test.ts")
+    test_source = test_path.read_text()
+    legacy = (
+        "    expect(servers[0]!.tools).toHaveLength(251);\\n"
+        "    expect(servers[0]!.tools?.every((tool) => tool.approvalMode === \\"unattended\\")).toBe(true);\\n"
+    )
+    if test_source.count(legacy) != 1:
+        raise RuntimeError("Expected exactly one obsolete inline MCP tool-list assertion")
+    if 'expect(generatedEntries).toHaveLength(251)' not in test_source or (
+        'expect(effective.allowedToolNames).not.toContain("excluded")' not in test_source
+    ):
+        raise RuntimeError("Missing immutable-profile exact-permission regression assertions")
+    test_path.write_text(test_source.replace(legacy, ""))
+    subprocess.run(["git", "add", "--", str(test_path)], check=True)
+    print("RECONCILED MCP inline tool-list test: retained exact 251-entry and exclusion checks")
     subprocess.run(["git", "diff", "--cached", "--check"], check=True)
     print("MERGE TEXT PASS: all known conflict markers resolved in an ephemeral checkout.")
     print("NO COMMIT/PUSH. Do not treat this as production readiness.")
