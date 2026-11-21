@@ -128,3 +128,19 @@ No automatic merge to ATS master, production update, credential exposure, paid p
 **Next bounded engineering slice:** reconstruct a valid combined ACPX package patch against `acpx@0.13.1`, retaining upstream additions and ATS owned process groups. Prove patch applies and passes ACPX lifecycle tests. Only then complete the source merge in an isolated branch, run CI, and prepare a draft PR. No laptop, staging or production operation has occurred.
 
 The fork's `master` must remain at `96a712e1968be89701ec7fc9f5ae452dce081914` until a separate approved merge.
+
+## ACPX package reconciliation — VALIDATED (21 November 2026)
+
+The ACPX patch blocker described at 18:00 UTC was resolved **at package source level**, not by blindly splicing generated patch hunks.
+
+- Verified the upstream stable patch and ATS original PR #11 patch independently apply to the exact `acpx@0.13.1` npm distribution. Source-level three-way merge produced exactly six semantic conflict sections in three files.
+- Reconciled six known sections with fail-closed assertions: process detachment/ownership, process-group callback, admission-error descendant shutdown, latest upstream replay comment, and two TypeScript callback declarations. All other upstream and ATS source-level changes were retained by Git's merge.
+- Regenerated the complete `patches/acpx@0.13.1.patch` from the npm base to the combined sources, **74,383 bytes**, SHA-256 `a861fc566594fdfa90311efde61737e3c37ea3403cb5e52234c25bcf9a99d107`.
+- [Package-level verification run #44933952801](https://github.com/architechsure-ltd/paperclip/actions/runs/44933952801) PASS: reapply patch to clean npm package, Node syntax checks, byte-for-byte package file reproduction and 4/4 isolated ownership / process shutdown tests.
+- Candidate patch committed as `2b8c6400cfcec1e740663f01bbde231af7d35abd`. Updated **only four ACPX patch-hash references** in `pnpm-lock.yaml` (from `25xv27loodfejozcsygclyiyau` to `znmbdzl4jxbijsedt3w4udsaem`), without adopting unrelated registry metadata changes.
+- [Initial Paperclip install and regression #44934242170](https://github.com/architechsure-ltd/paperclip/actions/runs/44934242170) PASS: 7/7 exact original ATS owned-process lifecycle tests, 33/33 ACPX adapter-utils regression tests.
+- [Final **frozen-lockfile** installation and regression #44934552271](https://github.com/architechsure-ltd/paperclip/actions/runs/44934552271) PASS: `pnpm install --frozen-lockfile` without regenerating the lockfile, then 7/7 ATS process lifecycle tests and 33/33 ACPX adapter tests; clean job conclusion SUCCESS.
+
+**Scope of acceptance:** The combined ACPX dependency patch is validated on the upstream stable branch with the ATS lifecycle tests. The full paperclip ATS merge, including PR #9 handover and PR #12 MCP policy integration and full application build, is **not** yet completed, so this is not production approval. The full-source merge's ACPX patch-file conflict must now resolve by selecting the validated integration-branch patch; do not revert to either original side.
+
+**Next bounded slice:** Complete the remaining server conflict reconciliation (imports and the durable Stop / ATS agent-key self-handover predicate), keep upstream recovery semantics, reconcile documentation and report-lock evidence, run integrated CI and prepare a draft-only PR. There is no laptop or deployment requirement at this stage.
