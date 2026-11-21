@@ -1,0 +1,73 @@
+name: ATS ACPX Runtime Validation
+
+# Runs only on the isolated upstream integration branch. No provider requests or deployment.
+on:
+  push:
+    branches:
+      - ats/upstream-2026-1117-integration
+    paths:
+      - .github/workflows/ats-acpx-runtime-validation.yml
+      - patches/acpx@0.13.1.patch
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Install merged ACPX patch and run ATS lifecycle regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Node 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: pnpm 9
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 9.15.4
+          run_install: false
+      - name: Resolve ACPX patch dependency and install
+        env:
+          ATS_SHA: 96a712e1968be89701ec7fc9f5ae452dce081914
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --version
+          pnpm --version
+          echo "Candidate: $(git rev-parse HEAD)"
+          echo "Patch file SHA256: $(sha256sum patches/acpx@0.13.1.patch)"
+          pnpm install --resolution-only --ignore-scripts --no-frozen-lockfile
+          echo "Updated lockfile status:"
+          git diff --stat -- pnpm-lock.yaml
+          git diff -- pnpm-lock.yaml | head -n 90 || true
+          pnpm install --frozen-lockfile
+          git fetch --no-tags origin "$ATS_SHA"
+          test ! -e server/src/__tests__/acpx-owned-process-lifecycle.test.mjs
+          git show "$ATS_SHA:server/src/__tests__/acpx-owned-process-lifecycle.test.mjs" > server/src/__tests__/acpx-owned-process-lifecycle.test.mjs
+      - name: Run exact ATS ACPX process-lifecycle acceptance tests
+        shell: bash
+        env:
+          PAPERCLIP_TEST_POSTGRES_TEMPLATE: "0"
+          OPENAI_BASE_URL: http://127.0.0.1:9
+          ANTHROPIC_BASE_URL: http://127.0.0.1:9
+          GOOGLE_GENERATIVE_AI_BASE_URL: http://127.0.0.1:9
+        run: |
+          set -euo pipefail
+          pnpm run preflight:workspace-links
+          pnpm --filter @paperclipai/plugin-sdk ensure-build-deps
+          node --import ./server/node_modules/tsx/dist/loader.mjs --test server/src/__tests__/acpx-owned-process-lifecycle.test.mjs
+          pnpm exec vitest run packages/adapter-utils/src/acpx-engine/spawn-smoke.test.ts packages/adapter-utils/src/acpx-engine/execute-identity.test.ts packages/adapter-utils/src/acpx-engine/remote-spawn-smoke.test.ts packages/adapter-utils/src/acpx-engine/operator-stop.test.ts packages/adapter-utils/src/acpx-engine/startup-cancellation.test.ts packages/adapter-utils/src/acpx-engine/run-site-host.test.ts --maxWorkers=1
+          echo "ATS ACPX APP-INSTALL LIFECYCLE TESTS: PASS"
+          echo "### ATS ACPX pnpm runtime validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Combined patch installed via pnpm into actual Paperclip dependencies." >> "$GITHUB_STEP_SUMMARY"
+          echo "- ATS PR #11 process-lifecycle regression suite passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Six ACPX adapter-utils regression files passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "- No provider calls, branch writes or deployment." >> "$GITHUB_STEP_SUMMARY"
