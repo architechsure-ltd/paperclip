@@ -153,3 +153,14 @@ The ACPX patch blocker described at 18:00 UTC was resolved **at package source l
 - The first rehearsal [#44958040761](https://github.com/architechsure-ltd/paperclip/actions/runs/44958040761) intentionally failed closed on an overly strict lockfile hash-count assumption; the validated whole-file lock is now used instead. Earlier ACPX runtime verification remains PASS.
 - Added a read-only integrated CI rehearsal in `2518f93` to install frozen dependencies, run handover/agent-wake/recovery/ACPX tests, then typecheck and build. [Run #44958208216](https://github.com/architechsure-ltd/paperclip/actions/runs/44958208216) is the evidence source; its result must be checked before marking application acceptance.
 - **Not yet approved:** semantics of report-lock evidence, all-app test status, persistent merge commit/draft PR, database migration review, real ATS infrastructure handover and deployment. No change to master or production.
+
+## Integrated CI regression checkpoint — 21 November 2026, 22:50 UTC
+
+- [Integrated application run #44958208216](https://github.com/architechsure-ltd/paperclip/actions/runs/44958208216): frozen install and source reconciliation **PASS**; 117 of 120 focused tests passed, 3 failures in `heartbeat-runtime-mcp-servers.test.ts`; typecheck and build were skipped by the failing test gate.
+- Exact error in all three: `401 gateway_token_run_invalid` from `listRuntimeToolPoliciesForNamedGateway`. The original tests minted gateway tokens referencing random, **unpersisted** `runId`s. Upstream correctly requires a real active `heartbeat_runs` record for a run-scoped token.
+- [Fixture correction `acfdb0f`](https://github.com/architechsure-ltd/paperclip/commit/acfdb0f2a9217eea0887694a543ab4c744bba278) seeds actual active runs for the three affected test paths. No gateway authentication or authorisation rules were loosened.
+- [Rerun #44959062854](https://github.com/architechsure-ltd/paperclip/actions/runs/44959062854) launched with the corrected fixtures (workflow trigger update `b7759c4`). Verify its actual outcome before preparing the persistent merge commit and draft PR.
+- Test evidence from the first integrated run: both `agent_jwt` and `agent_key` complete Hermes→Lead→revision→approval→parent unblocking paths passed; execution-stage wake tests passed.
+- `tests/runner-e2e/report-lock.patch` remains a historical upstream trusted lockfile-refresh artefact, not proof of the new ACPX lockfile. Its report SHA matches the historical patch itself, but the output SHA does **not** match the current integrated lockfile. Reconciliation of that historical evidence is still an explicit PR review item; do not mislabel it as current frozen-lock evidence.
+
+No change to ATS master, no merge approval, no production change, and no paid provider calls.
