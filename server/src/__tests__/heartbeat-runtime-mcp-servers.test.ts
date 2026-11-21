@@ -69,6 +69,19 @@ describeEmbeddedPostgres("heartbeat runtime MCP servers", () => {
     await tempDb?.cleanup();
   });
 
+  // Runtime MCP tokens must belong to an active run. Tests using random UUIDs
+  // without persisted heartbeat runs cannot exercise upstream's fail-closed
+  // named-gateway authentication and were failing with gateway_token_run_invalid.
+  async function seedActiveRun(agent: { companyId: string; id: string }): Promise<string> {
+    const [run] = await db.insert(heartbeatRuns).values({
+      companyId: agent.companyId,
+      agentId: agent.id,
+      status: "running",
+      contextSnapshot: {},
+    }).returning();
+    return run!.id;
+  }
+
   it("provisions one aggregate gateway and omits unavailable access without blocking any runtime", async () => {
     process.env.PAPERCLIP_API_URL = "https://paperclip.example.test";
     const [company] = await db.insert(companies).values({
@@ -139,8 +152,10 @@ describeEmbeddedPostgres("heartbeat runtime MCP servers", () => {
     });
 
     const before = Date.now();
-    const first = await buildPaperclipRuntimeMcpServers({ db, agent: agent!, runId: randomUUID() });
-    const second = await buildPaperclipRuntimeMcpServers({ db, agent: agent!, runId: randomUUID() });
+    const firstRunId = await seedActiveRun(agent!);
+    const secondRunId = await seedActiveRun(agent!);
+    const first = await buildPaperclipRuntimeMcpServers({ db, agent: agent!, runId: firstRunId });
+    const second = await buildPaperclipRuntimeMcpServers({ db, agent: agent!, runId: secondRunId });
 
     expect(first).toHaveLength(1);
     expect(first[0]).toMatchObject({
@@ -495,7 +510,8 @@ describeEmbeddedPostgres("heartbeat runtime MCP servers", () => {
       companyId: company!.id, connectionId: connection!.id, targetType: "agent", targetId: agent!.id,
     });
 
-    const servers = await buildPaperclipRuntimeMcpServers({ db, agent: agent!, runId: randomUUID() });
+    const firstRunId = await seedActiveRun(agent!);
+    const servers = await buildPaperclipRuntimeMcpServers({ db, agent: agent!, runId: firstRunId });
     expect(servers).toHaveLength(1);
     const [gateway] = await db.select().from(toolMcpGateways);
     const generatedEntries = await db.select().from(toolProfileEntries)
@@ -516,7 +532,8 @@ describeEmbeddedPostgres("heartbeat runtime MCP servers", () => {
     expect(effective.allowedToolNames).not.toContain("unassigned");
     expect(effective.allowedToolNames).not.toContain("new_after_snapshot");
 
-    const reused = await buildPaperclipRuntimeMcpServers({ db, agent: agent!, runId: randomUUID() });
+    const secondRunId = await seedActiveRun(agent!);
+    const reused = await buildPaperclipRuntimeMcpServers({ db, agent: agent!, runId: secondRunId });
     expect(reused[0]!.connectionId).toBe(servers[0]!.connectionId);
     expect(await db.select().from(toolMcpGateways)).toHaveLength(1);
   });
@@ -799,10 +816,11 @@ describeEmbeddedPostgres("heartbeat runtime MCP servers", () => {
       targetId: agent!.id,
     });
 
+    const runId = await seedActiveRun(agent!);
     const config = await createManagedMcpRunConfig({
       db,
       agent: agent!,
-      runId: randomUUID(),
+      runId,
       config: {},
       projectId: null,
       issueId: null,
