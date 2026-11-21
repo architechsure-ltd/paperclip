@@ -100,6 +100,18 @@ jobs:
             -t "preserves exact permissions when an aggregate assignment exceeds" \
             --maxWorkers=1
 
+      - name: Integrated typecheck and application build
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm run typecheck
+          pnpm run build
+          echo "### ATS pinned upstream + fork integrated validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Exact ACPX patch and frozen dependencies applied." >> "$GITHUB_STEP_SUMMARY"
+          echo "- ATS review handover, wake, execution and lifecycle regressions passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Workspace typecheck and application build passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Temporary checkout only. No branch merge, deployment or paid provider invocation." >> "$GITHUB_STEP_SUMMARY"
+
       - name: ATS and upstream handover and recovery regressions
         shell: bash
         run: |
@@ -114,14 +126,3 @@ jobs:
           node --import ./server/node_modules/tsx/dist/loader.mjs --test \
             server/src/__tests__/acpx-owned-process-lifecycle.test.mjs
 
-      - name: Integrated typecheck and application build
-        shell: bash
-        run: |
-          set -euo pipefail
-          pnpm run typecheck
-          pnpm run build
-          echo "### ATS pinned upstream + fork integrated validation" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Exact ACPX patch and frozen dependencies applied." >> "$GITHUB_STEP_SUMMARY"
-          echo "- ATS review handover, wake, execution and lifecycle regressions passed." >> "$GITHUB_STEP_SUMMARY"
-          echo "- Workspace typecheck and application build passed." >> "$GITHUB_STEP_SUMMARY"
-          echo "- Temporary checkout only. No branch merge, deployment or paid provider invocation." >> "$GITHUB_STEP_SUMMARY"
