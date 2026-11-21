@@ -5,7 +5,8 @@ import { existsSync, readFileSync } from "node:fs";
 const workflow = readFileSync(new URL("../../workflows/cloud-readiness.yml", import.meta.url), "utf8");
 
 test("retirement preserves exact-source verification without issuing legacy deployment readiness", () => {
-  assert.match(workflow, /push:\s*\n\s*branches: \[master\]/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.doesNotMatch(workflow, /^  push:|^  schedule:/m);
   assert.match(workflow, /uses: \.\/\.github\/workflows\/release-verify.yml\s+with:\s+ref: \$\{\{ github.sha \}\}/);
   const proof = workflow.split("  source_verified:")[1];
   assert.ok(proof);
@@ -25,7 +26,8 @@ test("standard image provenance and independent exact-source migrators remain av
   assert.match(docker, /run: node scripts\/standard-image-contract.mjs --resolve "\$GITHUB_SHA"/);
   assert.match(docker, /subject-digest: \$\{\{ steps.standard.outputs.digest \}\}/);
   const migrator = readFileSync(new URL("../../workflows/cloud-migrator-artifacts.yml", import.meta.url), "utf8");
-  assert.match(migrator, /push:\s*\n\s*branches: \[master\]/);
+  assert.match(migrator, /workflow_dispatch:/);
+  assert.doesNotMatch(migrator, /^  push:|^  schedule:/m);
   assert.match(migrator, /uses: actions\/attest@/);
   assert.doesNotMatch(docker, /build-and-push-cloud|docker-cloud.yml|canary-cloud/);
 });
