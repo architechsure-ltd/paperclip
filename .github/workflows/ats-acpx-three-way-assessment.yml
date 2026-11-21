@@ -83,7 +83,7 @@ jobs:
             git diff --name-only --diff-filter=U | while read -r file; do
               echo "CONFLICT FILE: $file"
               echo "- \`$file\`" >> "$GITHUB_STEP_SUMMARY"
-              grep -n '^<<<<<<<' "$file" | head -n 35 || true
+              awk '/^<<<<<<< / {inside=1; n++; print "===== HUNK " n " ====="} inside {print NR ":" $0} /^>>>>>>> / {inside=0; print "===== END HUNK ====="}' "$file"
             done
           else
             echo "::error::ACPX source merge failed without conflicts"
