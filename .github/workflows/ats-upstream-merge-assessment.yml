@@ -31,6 +31,15 @@ jobs:
           EXPECTED_ATS: 96a712e1968be89701ec7fc9f5ae452dce081914
         run: |
           set -euo pipefail
+          if grep -R -nE '^  schedule:' .github/workflows; then
+            echo "::error::ATS integration candidate still has scheduled GitHub Actions"
+            exit 1
+          fi
+          if [ -f .github/workflows/refresh-lockfile.yml ]; then
+            echo "::error::Inherited lockfile auto-merge bot is still present"
+            exit 1
+          fi
+          echo "ATS scheduled-action and lockfile bot checks: PASS"
           git config user.name "ATS read-only assessment"
           git config user.email "ats-assessment@users.noreply.github.com"
           git fetch --no-tags origin "$EXPECTED_ATS"
@@ -75,6 +84,14 @@ jobs:
                 echo "===== END: $path ====="
               fi
             done
+            echo "===== SEMANTIC REASSIGNMENT CONTEXT ====="
+            start_line=$(grep -n 'const isHumanSelfHandoff\|const isLegacySelfHandoff' server/src/routes/issues.ts | head -n 1 | cut -d: -f1 || true)
+            if [ -n "$start_line" ]; then
+              low=$((start_line > 6 ? start_line - 6 : 1))
+              high=$((start_line + 110))
+              sed -n "${low},${high}p" server/src/routes/issues.ts
+            fi
+            echo "===== END SEMANTIC CONTEXT ====="
           else
             echo "::error::git merge failed without conflict entries (exit $rc)"
             exit "$rc"
