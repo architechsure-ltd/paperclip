@@ -106,11 +106,6 @@ jobs:
           set -euo pipefail
           pnpm run typecheck
           pnpm run build
-          echo "### ATS pinned upstream + fork integrated validation" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Exact ACPX patch and frozen dependencies applied." >> "$GITHUB_STEP_SUMMARY"
-          echo "- ATS review handover, wake, execution and lifecycle regressions passed." >> "$GITHUB_STEP_SUMMARY"
-          echo "- Workspace typecheck and application build passed." >> "$GITHUB_STEP_SUMMARY"
-          echo "- Temporary checkout only. No branch merge, deployment or paid provider invocation." >> "$GITHUB_STEP_SUMMARY"
 
       - name: ATS and upstream handover and recovery regressions
         shell: bash
@@ -125,4 +120,9 @@ jobs:
             --maxWorkers=1
           node --import ./server/node_modules/tsx/dist/loader.mjs --test \
             server/src/__tests__/acpx-owned-process-lifecycle.test.mjs
+          echo "### ATS pinned upstream + fork integrated validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Exact ACPX patch and frozen dependencies applied." >> "$GITHUB_STEP_SUMMARY"
+          echo "- ATS review handover, wake, execution and lifecycle regressions passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Workspace typecheck and application build passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Temporary checkout only. No branch merge, deployment or paid provider invocation." >> "$GITHUB_STEP_SUMMARY"
 
