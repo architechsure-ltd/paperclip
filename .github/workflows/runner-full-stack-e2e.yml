@@ -2,9 +2,6 @@ name: Runner Full-Stack E2E
 run-name: Runner Full-Stack E2E / ${{ github.event.schedule || inputs.cadence || 'manual' }}
 
 on:
-  schedule:
-    - cron: "47 8 * * *"
-    - cron: "47 9 * * 0"
   workflow_dispatch:
     inputs:
       cadence:
