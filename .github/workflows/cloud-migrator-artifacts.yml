@@ -2,8 +2,6 @@ name: Cloud migrator artifacts
 run-name: Cloud migrator artifacts ${{ github.sha }}
 
 on:
-  push:
-    branches: [master]
   workflow_dispatch:
 
 permissions: {}
