@@ -7,6 +7,7 @@ Unexpected paths or conflict shapes fail closed. Passing this script is not an
 approval of the semantic behaviour or ACPX patch.
 """
 from __future__ import annotations
+import hashlib
 import re
 import subprocess
 from pathlib import Path
@@ -71,15 +72,7 @@ def reconcile(path: str, left: str, right: str, index: int, whole: str) -> str:
         # only after package-install and report-lock verification.
         return left
     if path == "patches/acpx@0.13.1.patch":
-        if index == 0 and left.lstrip().startswith("index "):
-            return left
-        if "@@" in right:
-            return right
-        if left.startswith("@@ ") and right.startswith("+"):
-            # Preserve upstream hunk anchor and ATS process-group additions.
-            # The next structural check rejects inconsistent patch counts.
-            return left + right
-        raise RuntimeError(f"Unexpected ACPX patch conflict #{index}: left={left[:200]!r}, right={right[:200]!r}")
+        raise RuntimeError("ACPX conflict must use the validated package patch from HEAD")
     raise RuntimeError(f"Unrecognised path: {path}")
 
 def main() -> None:
@@ -88,6 +81,18 @@ def main() -> None:
         raise RuntimeError(f"Expected exactly {sorted(EXPECTED)}, got {sorted(found)}")
     for path in sorted(found):
         p = Path(path)
+        if path == "patches/acpx@0.13.1.patch":
+            # Use the pinned, independently validated package patch; never
+            # splice overlapping generated diff hunks.
+            patch = subprocess.check_output(["git", "show", f"HEAD:{path}"])
+            digest = hashlib.sha256(patch).hexdigest()
+            expected = "a861fc566594fdfa90311efde61737e3c37ea3403cb5e52234c25bcf9a99d107"
+            if digest != expected:
+                raise RuntimeError(f"Unexpected validated ACPX SHA-256: {digest}")
+            p.write_bytes(patch)
+            subprocess.run(["git", "add", "--", path], check=True)
+            print(f"RECONCILED {path}: exact validated patch SHA-256 {digest}")
+            continue
         content = p.read_text()
         matches = list(MARKER.finditer(content))
         if not matches:
@@ -100,6 +105,25 @@ def main() -> None:
             prior = match.end()
         parts.append(content[prior:])
         resolved = "".join(parts)
+        if path == "pnpm-lock.yaml":
+            # Preserve upstream dependency choices; update ONLY the four
+            # references to the validated combined ACPX patch.
+            old_hash = "25xv27loodfejozcsygclyiyau"
+            new_hash = "znmbdzl4jxbijsedt3w4udsaem"
+            if resolved.count(old_hash) != 4 or resolved.count(new_hash) != 0:
+                raise RuntimeError("Unexpected ACPX patch-hash references in merged lockfile")
+            resolved = resolved.replace(old_hash, new_hash)
+        if path == "server/src/routes/issues.ts":
+            required = [
+                "const isLegacySelfHandoff =",
+                'req.actor.source === "agent_key"',
+                'parseObject(error.details).code === "native_stop_pending"',
+                "reassignmentStopRequested === true",
+                "includeExecutionEvidence: true",
+            ]
+            for token in required:
+                if token not in resolved:
+                    raise RuntimeError(f"ATS / upstream reassignment guarantee missing: {token}")
         if re.search(r"(?m)^<<<<<<< |^=======\s*$|^>>>>>>> ", resolved):
             raise RuntimeError(f"{path}: unresolved conflict markers")
         p.write_text(resolved)
