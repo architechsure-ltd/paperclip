@@ -1,8 +1,6 @@
 name: Refresh CI test durations
 
 on:
-  schedule:
-    - cron: '41 7 * * 1'
   workflow_dispatch:
 
 permissions:
