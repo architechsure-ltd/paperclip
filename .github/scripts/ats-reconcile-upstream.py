@@ -75,7 +75,7 @@ def reconcile(path: str, left: str, right: str, index: int, whole: str) -> str:
             return left
         if "@@" in right:
             return right
-        raise RuntimeError("Unexpected ACPX patch conflict; do not guess")
+        raise RuntimeError(f"Unexpected ACPX patch conflict #{index}: left={left[:200]!r}, right={right[:200]!r}")
     raise RuntimeError(f"Unrecognised path: {path}")
 
 def main() -> None:
