@@ -1,8 +1,6 @@
 name: Runner Chaos Evals
 
 on:
-  schedule:
-    - cron: "43 7 * * 0"
   workflow_dispatch:
   workflow_call:
     inputs:
