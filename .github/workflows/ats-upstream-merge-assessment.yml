@@ -22,7 +22,6 @@ jobs:
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
-          filter: blob:none
           persist-credentials: false
 
       - name: Assess merge without altering GitHub or production
@@ -35,7 +34,10 @@ jobs:
           git config user.name "ATS read-only assessment"
           git config user.email "ats-assessment@users.noreply.github.com"
           git fetch --no-tags origin "$EXPECTED_ATS"
+          git remote add upstream https://github.com/paperclipai/paperclip.git
+          git fetch --no-tags upstream "$EXPECTED_UPSTREAM"
           git cat-file -e "$EXPECTED_ATS^{commit}"
+          git cat-file -e "$EXPECTED_UPSTREAM^{commit}"
           git merge-base --is-ancestor "$EXPECTED_UPSTREAM" HEAD || {
             echo "::error::Integration branch does not descend from the pinned upstream stable baseline"
             exit 1
