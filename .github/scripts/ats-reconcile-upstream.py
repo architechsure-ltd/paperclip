@@ -81,17 +81,26 @@ def main() -> None:
         raise RuntimeError(f"Expected exactly {sorted(EXPECTED)}, got {sorted(found)}")
     for path in sorted(found):
         p = Path(path)
-        if path == "patches/acpx@0.13.1.patch":
-            # Use the pinned, independently validated package patch; never
-            # splice overlapping generated diff hunks.
-            patch = subprocess.check_output(["git", "show", f"HEAD:{path}"])
-            digest = hashlib.sha256(patch).hexdigest()
-            expected = "a861fc566594fdfa90311efde61737e3c37ea3403cb5e52234c25bcf9a99d107"
-            if digest != expected:
-                raise RuntimeError(f"Unexpected validated ACPX SHA-256: {digest}")
-            p.write_bytes(patch)
+        if path in {"patches/acpx@0.13.1.patch", "pnpm-lock.yaml"}:
+            # These two files were validated together via frozen-lockfile CI.
+            # Do not recombine generated patch hunks or old dependency graphs.
+            data = subprocess.check_output(["git", "show", f"HEAD:{path}"])
+            if path == "patches/acpx@0.13.1.patch":
+                digest = hashlib.sha256(data).hexdigest()
+                expected = "a861fc566594fdfa90311efde61737e3c37ea3403cb5e52234c25bcf9a99d107"
+                if digest != expected:
+                    raise RuntimeError(f"Unexpected validated ACPX SHA-256: {digest}")
+            else:
+                blob = subprocess.check_output(
+                    ["git", "rev-parse", f"HEAD:{path}"], text=True
+                ).strip()
+                if blob != "884de5a436743eafe49c6b0edc06e026ca16bbc2":
+                    raise RuntimeError(f"Unexpected frozen-lockfile Git blob SHA: {blob}")
+                if data.count(b"znmbdzl4jxbijsedt3w4udsaem") != 4:
+                    raise RuntimeError("Frozen-lockfile missing exact ACPX hash references")
+            p.write_bytes(data)
             subprocess.run(["git", "add", "--", path], check=True)
-            print(f"RECONCILED {path}: exact validated patch SHA-256 {digest}")
+            print(f"RECONCILED {path}: exact pinned validated integration artifact")
             continue
         content = p.read_text()
         matches = list(MARKER.finditer(content))
@@ -105,14 +114,6 @@ def main() -> None:
             prior = match.end()
         parts.append(content[prior:])
         resolved = "".join(parts)
-        if path == "pnpm-lock.yaml":
-            # Preserve upstream dependency choices; update ONLY the four
-            # references to the validated combined ACPX patch.
-            old_hash = "25xv27loodfejozcsygclyiyau"
-            new_hash = "znmbdzl4jxbijsedt3w4udsaem"
-            if resolved.count(old_hash) != 4 or resolved.count(new_hash) != 0:
-                raise RuntimeError("Unexpected ACPX patch-hash references in merged lockfile")
-            resolved = resolved.replace(old_hash, new_hash)
         if path == "server/src/routes/issues.ts":
             required = [
                 "const isLegacySelfHandoff =",
