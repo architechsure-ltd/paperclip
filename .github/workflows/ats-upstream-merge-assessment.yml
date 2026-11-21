@@ -64,6 +64,17 @@ jobs:
             echo '#### Conflicting files' >> "$GITHUB_STEP_SUMMARY"
             sed 's/^/- \`/;s/$/\`/' /tmp/ats-conflicts.txt >> "$GITHUB_STEP_SUMMARY"
             cat /tmp/ats-conflicts.txt
+            for path in server/src/routes/issues.ts server/src/services/heartbeat.ts server/src/services/heartbeat/queue.ts server/src/services/legacy-execution-recovery.ts patches/acpx@0.13.1.patch doc/DEVELOPING.md; do
+              if grep -q '^<<<<<<< ' "$path"; then
+                echo "===== CONFLICT HUNKS: $path ====="
+                awk '
+                  /^<<<<<<< / { inside=1; count++ }
+                  inside && lines < 300 { print NR ":" $0; lines++ }
+                  /^>>>>>>> / { inside=0; print ""; if(count >= 12) exit }
+                ' "$path"
+                echo "===== END: $path ====="
+              fi
+            done
           else
             echo "::error::git merge failed without conflict entries (exit $rc)"
             exit "$rc"
