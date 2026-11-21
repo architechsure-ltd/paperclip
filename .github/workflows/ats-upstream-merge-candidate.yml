@@ -91,6 +91,14 @@ jobs:
           pnpm run preflight:workspace-links
           pnpm --filter @paperclipai/plugin-sdk ensure-build-deps
 
+      - name: Narrow MCP large-assignment regression (fail fast)
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vitest run server/src/__tests__/heartbeat-runtime-mcp-servers.test.ts \
+            -t "preserves exact permissions when an aggregate assignment exceeds" \
+            --maxWorkers=1
+
       - name: ATS and upstream handover and recovery regressions
         shell: bash
         run: |
