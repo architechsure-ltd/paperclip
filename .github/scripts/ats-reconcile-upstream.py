@@ -139,8 +139,8 @@ def main() -> None:
     test_path = Path("server/src/__tests__/heartbeat-runtime-mcp-servers.test.ts")
     test_source = test_path.read_text()
     legacy = (
-        "    expect(servers[0]!.tools).toHaveLength(251);\\n"
-        "    expect(servers[0]!.tools?.every((tool) => tool.approvalMode === \\"unattended\\")).toBe(true);\\n"
+        "    expect(servers[0]!.tools).toHaveLength(251);\n"
+        "    expect(servers[0]!.tools?.every((tool) => tool.approvalMode === \"unattended\")).toBe(true);\n"
     )
     if test_source.count(legacy) != 1:
         raise RuntimeError("Expected exactly one obsolete inline MCP tool-list assertion")
