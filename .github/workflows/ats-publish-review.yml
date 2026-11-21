@@ -39,6 +39,9 @@ jobs:
           test "$live_master" = "$ATS_MASTER"
           review_head=$(git ls-remote --heads origin "refs/heads/$REVIEW" | cut -f1)
           test "$review_head" = "$EXPECTED_REVIEW_HEAD"
+          # Start at the reserved review ref, not this temporary workflow's
+          # commit, so the write-scoped workflow is excluded from history.
+          git checkout --detach "$EXPECTED_REVIEW_HEAD"
           git config user.name "ATS one-time review integration"
           git config user.email "ats-upstream-review@users.noreply.github.com"
           git fetch --no-tags origin "$ATS_MASTER"
@@ -51,8 +54,12 @@ jobs:
             python3 .github/scripts/ats-reconcile-upstream.py
           fi
           test -z "$(git ls-files -u)"
-          # Do not publish this temporary write-permission workflow to the PR.
-          git rm -- .github/workflows/ats-publish-review.yml
+          # Retain the pre-reviewed workflow policy exactly. GitHub Actions
+          # token cannot update workflow files; the branch must not need that.
+          git restore --source "$EXPECTED_REVIEW_HEAD" --staged --worktree -- .github/workflows
+          test -z "$(git diff --name-only "$EXPECTED_REVIEW_HEAD" -- .github/workflows)"
+          test -z "$(git diff --cached --name-only "$EXPECTED_REVIEW_HEAD" -- .github/workflows)"
+          test ! -f .github/workflows/ats-publish-review.yml
           if grep -R -nE '^  schedule:' .github/workflows; then
             echo "::error::Scheduled workflow unexpectedly present"
             exit 1
