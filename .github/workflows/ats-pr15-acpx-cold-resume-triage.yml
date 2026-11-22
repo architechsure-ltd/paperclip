@@ -58,7 +58,7 @@ jobs:
           hunk = s[start:end]
           assert '-\t\tconfigReplay = await replayDesiredConfigOptions({' in hunk
           assert '+\t\tif (params.createdFreshSession) configReplay = await replayDesiredConfigOptions({' in hunk
-          assert hunk.count('@@ ') == 1
+          assert hunk.startswith(start_hunk) and hunk.count('configReplay = await replayDesiredConfigOptions({') == 2
           p.write_text(s[:start] + s[end:])
           print('Removed ATS-only conditional replay hunk; upstream original unconditional config restoration preserved')
           PY
