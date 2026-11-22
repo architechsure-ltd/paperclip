@@ -909,15 +909,6 @@ index d454fd7..e126315 100644
  			client: params.client,
  			sessionId: params.sessionId,
  			desiredModeId: params.desiredModeId,
-@@ -6219,7 +6553,7 @@ async function replayFreshSessionPreferences(params) {
- 			verbose: params.verbose,
- 			suppressWarnings: params.suppressWarnings
- 		});
--		configReplay = await replayDesiredConfigOptions({
-+		if (params.createdFreshSession) configReplay = await replayDesiredConfigOptions({
- 			client: params.client,
- 			record: params.record,
- 			sessionId: params.sessionId,
 @@ -6435,6 +6769,27 @@ async function withConnectedSession(options) {
  //#region src/runtime/engine/prompt-turn.ts
  const SESSION_REPLY_IDLE_MS = 1e3;
