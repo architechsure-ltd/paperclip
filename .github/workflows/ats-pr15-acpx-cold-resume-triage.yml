@@ -1,4 +1,4 @@
-name: ATS PR15 ACPX corrected dependency acceptance
+name: ATS PR15 fork CI and lock proof acceptance
 
 # Verify the committed PR15 correction from a read-only checkout; no provider, merge or deployment.
 on:
@@ -23,7 +23,7 @@ jobs:
         include:
           - candidate: ATS-PR15
             repository: architechsure-ltd/paperclip
-            sha: ab04d40178cd546ace9e2e79714ba7bbda236a20
+            sha: 3d5567fb16a1158d55db772a0c4594f2fda40ab9
     env:
       OPENAI_BASE_URL: http://127.0.0.1:9
       ANTHROPIC_BASE_URL: http://127.0.0.1:9
@@ -49,6 +49,12 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm run preflight:workspace-links
           pnpm --filter @paperclipai/plugin-sdk ensure-build-deps
+      - name: Verify offline lockfile proof and ATS no-schedule workflow tests
+        run: |
+          set -euo pipefail
+          node tests/runner-e2e/prepare-report-lock.mjs
+          pnpm test:e2e:runner:unit prepare-report-lock.test.ts workflow-security.test.ts --maxWorkers=1
+          node --test tests/runner-e2e/reliability-testops.test.mjs .github/scripts/tests/ci-plan.test.mjs
       - name: Verify whole Claude effort admission suite and provider-free cold resume
         run: |
           set -euo pipefail
