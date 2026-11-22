@@ -16,4 +16,4 @@ jobs:
     if: github.event.action != 'labeled' || github.event.label.name == 'profile-ci' || github.event.label.name == 'full-ci'
     # Use the reviewed fork workflow and its pinned compatible routing contract.
     # Repository workflow changes still require normal review.
-    uses: architechsure-ltd/paperclip/.github/workflows/pr-trusted.yml@fb370d801f9aacd64709d5dbf059b8a99f5e1feb
+    uses: architechsure-ltd/paperclip/.github/workflows/pr-trusted.yml@2a7a3f1b7256a83d09ffc733e97f60a90dd1fcf0

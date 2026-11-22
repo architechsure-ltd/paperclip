@@ -813,7 +813,8 @@ test("Runner eval workflows pin actions and gate paid live execution", () => {
       (match) => match[1],
     );
     if (name === "runner-full-stack-e2e.yml") {
-      assert.deepEqual(crons, ["47 8 * * *", "47 9 * * 0"]);
+      assert.deepEqual(crons, [], "ATS does not schedule paid Runner campaigns");
+      assert.doesNotMatch(workflow, /^  schedule:/m);
       assert.ok(workflow.includes("vars.RUNNER_FULL_STACK_E2E_NIGHTLY_ENABLED == 'true' && vars.RUNNER_FULL_STACK_E2E_OPERATIONS_ENABLED == 'true'"));
       assert.ok(workflow.includes("Prepare bounded campaign before credentials"));
       assert.ok(workflow.includes("--max-parallel 1 --max-automatic-retries 0"));
@@ -825,8 +826,8 @@ test("Runner eval workflows pin actions and gate paid live execution", () => {
       assert.ok(prepare.includes("EVAL_TEST_RUNNER: ${{ needs.authorize.outputs.test_runner }}"));
       assert.ok(!prepare.includes("vars.RUNNER_E2E_OPERATING_OVERHEAD_JSON"));
     } else {
-      assert.equal(crons.length, 1, `${name} must have one schedule`);
-      assert.match(crons[0], /^\d{1,2} \d{1,2} \* \* 0$/);
+      assert.deepEqual(crons, [], `${name} must remain manual-only in ATS`);
+      assert.doesNotMatch(workflow, /^  schedule:/m);
     }
   }
 
