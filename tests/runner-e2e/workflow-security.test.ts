@@ -3,8 +3,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");
-// PR #13470 uses the code-owner-reviewed default branch for this first-party workflow.
-const ordinaryPrTrustedWorkflowRevision = "master";
+// ATS uses a reviewed immutable commit in the fork, never mutable upstream master.
+const ordinaryPrTrustedWorkflowRevision = "fb370d801f9aacd64709d5dbf059b8a99f5e1feb";
 const fullStackTestNeeds =
   /needs:\s*\[\s*authorize,\s*target_lock,\s*catalog,\s*daytona_image,\s*build_runner_artifacts,\s*build_remote_provider_pack,?\s*\]/u;
 const buildRunnerNeeds =
@@ -62,20 +62,20 @@ describe("public repository paid workflow security", () => {
 
   });
 
-  it("uses the reviewed master branch for the first-party trusted PR workflow", async () => {
+  it("pins the reviewed ATS fork CI workflow to an immutable commit", async () => {
     const ordinaryPrWorkflow = await readFile(
       path.join(repositoryRoot, ".github/workflows/pr.yml"),
       "utf8",
     );
     const trustedWorkflowCalls = [
       ...ordinaryPrWorkflow.matchAll(
-        /^\s+uses:\s+(paperclipai\/paperclip\/\.github\/workflows\/pr-trusted\.yml)@([^\s#]+)$/gmu,
+        /^\s+uses:\s+(architechsure-ltd\/paperclip\/\.github\/workflows\/pr-trusted\.yml)@([^\s#]+)$/gmu,
       ),
     ];
 
     expect(trustedWorkflowCalls).toHaveLength(1);
     expect(trustedWorkflowCalls[0]?.[1]).toBe(
-      "paperclipai/paperclip/.github/workflows/pr-trusted.yml",
+      "architechsure-ltd/paperclip/.github/workflows/pr-trusted.yml",
     );
     expect(trustedWorkflowCalls[0]?.[2]).toBe(
       ordinaryPrTrustedWorkflowRevision,
