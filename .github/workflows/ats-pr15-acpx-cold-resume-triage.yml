@@ -1,6 +1,6 @@
-name: ATS PR15 ACPX cold-resume triage
+name: ATS PR15 ACPX cold-resume fix rehearsal
 
-# Read-only baseline comparison; mock ACP peer, no live provider, no writes beyond the temporary runner.
+# Test-only correction of the ATS ACPX patch in a temporary checkout; no provider or remote repository mutation.
 on:
   push:
     branches:
@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   cold-resume:
-    name: Claude cold resume / ${{ matrix.candidate }}
+    name: Claude resume + owned process lifecycle
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -43,6 +43,27 @@ jobs:
         with:
           version: 9.15.4
           run_install: false
+      - name: Remove erroneous ATS resume-only config replay condition (temporary checkout)
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('patches/acpx@0.13.1.patch')
+          s = p.read_text()
+          start_hunk = '@@ -6219,7 +6553,7 @@ async function replayFreshSessionPreferences(params) {'
+          next_hunk = '@@ -6435,6 +6769,27 @@ async function withConnectedSession(options) {'
+          assert s.count(start_hunk) == 1 and s.count(next_hunk) == 1
+          start = s.index(start_hunk)
+          end = s.index(next_hunk, start)
+          hunk = s[start:end]
+          assert '-\t\tconfigReplay = await replayDesiredConfigOptions({' in hunk
+          assert '+\t\tif (params.createdFreshSession) configReplay = await replayDesiredConfigOptions({' in hunk
+          assert hunk.count('@@ ') == 1
+          p.write_text(s[:start] + s[end:])
+          print('Removed ATS-only conditional replay hunk; upstream original unconditional config restoration preserved')
+          PY
+          pnpm install --resolution-only --ignore-scripts --no-frozen-lockfile
+          git diff -- pnpm-lock.yaml | tail -n 65
       - name: Frozen install and workspace prerequisites
         run: |
           set -euo pipefail
@@ -60,9 +81,10 @@ jobs:
           log = '    console.log("ATS_COLD_RESUME_DIAGNOSTIC", JSON.stringify({result, wire}));'
           p.write_text(s.replace(old, log + chr(10) + old))
           PY
-      - name: Reproduce provider-free Claude cold-resume scenario
+      - name: Verify whole Claude effort admission suite and provider-free cold resume
         run: |
           set -euo pipefail
-          pnpm --filter @paperclipai/paperclip-runner exec vitest run src/drivers/acpx/claude-effort.test.ts \
-            -t "actual ACPX cold cross-process resume selects the bound effort again before the prompt" \
-            --maxWorkers=1
+          pnpm --filter @paperclipai/paperclip-runner exec vitest run src/drivers/acpx/claude-effort.test.ts --maxWorkers=1
+      - name: Verify ATS ACPX owned-process and descendant shutdown regressions
+        run: |
+          node --import ./server/node_modules/tsx/dist/loader.mjs --test server/src/__tests__/acpx-owned-process-lifecycle.test.mjs
