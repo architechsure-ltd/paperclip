@@ -1,7 +1,8 @@
 diff --git a/dist/client-CxNllqui.d.ts b/dist/client-CxNllqui.d.ts
+index 5e2113a..45aff03 100644
 --- a/dist/client-CxNllqui.d.ts
 +++ b/dist/client-CxNllqui.d.ts
-@@ -120,6 +120,8 @@
+@@ -120,6 +120,8 @@ declare class AcpClient {
    private initializeProtocolConnection;
    private handleInitializeFailure;
    private createTappedStream;
@@ -10,7 +11,7 @@ diff --git a/dist/client-CxNllqui.d.ts b/dist/client-CxNllqui.d.ts
    createSession(cwd?: string): Promise<SessionCreateResult>;
    loadSession(sessionId: string, cwd?: string): Promise<SessionLoadResult>;
    loadSessionWithOptions(sessionId: string, cwd?: string, options?: LoadSessionOptions): Promise<SessionLoadResult>;
-@@ -135,6 +137,7 @@
+@@ -135,6 +137,7 @@ declare class AcpClient {
    private throwPromptPermissionFailureIfPresent;
    setSessionMode(sessionId: string, modeId: string): Promise<void>;
    setSessionConfigOption(sessionId: string, configId: string, value: string): Promise<SetSessionConfigOptionResponse>;
@@ -19,6 +20,7 @@ diff --git a/dist/client-CxNllqui.d.ts b/dist/client-CxNllqui.d.ts
    private setSessionModelThroughConfig;
    private setSessionModelThroughLegacyMethod;
 diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
+index d454fd7..e126315 100644
 --- a/dist/live-checkpoint-BSIrfgVo.js
 +++ b/dist/live-checkpoint-BSIrfgVo.js
 @@ -1,3 +1,4 @@
@@ -26,7 +28,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  import fs, { readFileSync, statSync } from "node:fs";
  import { fileURLToPath } from "node:url";
  import path from "node:path";
-@@ -6,7 +7,7 @@
+@@ -6,7 +7,7 @@ import os from "node:os";
  import { randomUUID } from "node:crypto";
  import { execFile, spawn } from "node:child_process";
  import { Readable, Writable } from "node:stream";
@@ -35,7 +37,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  import readline from "node:readline/promises";
  //#region src/errors.ts
  var AcpxOperationalError = class extends Error {
-@@ -1068,12 +1069,14 @@
+@@ -1068,12 +1069,14 @@ function serializeSessionRecordForDisk(record) {
  		last_agent_disconnect_reason: canonical.lastAgentDisconnectReason,
  		protocol_version: canonical.protocolVersion,
  		agent_capabilities: canonical.agentCapabilities,
@@ -50,7 +52,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		acpx: canonical.acpx,
  		imported_from: canonical.importedFrom ? {
  			record_id: canonical.importedFrom.recordId,
-@@ -1239,7 +1242,8 @@
+@@ -1239,7 +1242,8 @@ function parseRequestTokenUsage(raw) {
  	for (const [key, value] of Object.entries(record)) {
  		const parsed = parseTokenUsage(value);
  		if (parsed == null) return null;
@@ -60,7 +62,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  	}
  	return usage;
  }
-@@ -1325,6 +1329,93 @@
+@@ -1325,6 +1329,93 @@ function isAgentMessage$1(raw) {
  function isConversationMessage(raw) {
  	return raw === "Resume" || isUserMessage$1(raw) || isAgentMessage$1(raw);
  }
@@ -154,7 +156,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  function parseConversationRecord(record) {
  	if (!hasValidConversationCore(record)) return;
  	const title = parseConversationTitle(record.title);
-@@ -1339,7 +1430,8 @@
+@@ -1339,7 +1430,8 @@ function parseConversationRecord(record) {
  		updated_at: record.updated_at,
  		cumulative_token_usage: cumulativeTokenUsage ?? {},
  		cumulative_cost: cumulativeCost,
@@ -164,7 +166,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  	};
  }
  const INVALID_VALUE = Symbol("invalid");
-@@ -1541,12 +1633,14 @@
+@@ -1541,12 +1633,14 @@ function parseSessionRecord(raw) {
  		lastAgentDisconnectReason: optionals.lastAgentDisconnectReason,
  		protocolVersion: typeof record.protocol_version === "number" ? record.protocol_version : void 0,
  		agentCapabilities: asRecord$4(record.agent_capabilities),
@@ -179,7 +181,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		acpx: parseAcpxState(record.acpx),
  		importedFrom: metadata.importedFrom
  	};
-@@ -1661,8 +1755,9 @@
+@@ -1661,8 +1755,9 @@ const ZED_TAG_KEYS = /* @__PURE__ */ new Set([
  	"RedactedThinking",
  	"ToolUse"
  ]);
@@ -190,7 +192,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  	"agent_capabilities",
  	"messages.Agent.content.ToolUse.input",
  	"acpx.desired_config_options",
-@@ -3104,10 +3199,10 @@
+@@ -3104,10 +3199,10 @@ function authEnvKey(methodId) {
  	authEnvKeyCache.set(methodId, key);
  	return key;
  }
@@ -203,7 +205,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  	if (typeof value === "string" && value.trim().length > 0) return value;
  }
  function protectedEnvKey(key) {
-@@ -3135,8 +3230,21 @@
+@@ -3135,8 +3230,21 @@ function promotePrefixedAuthEnvironment(env) {
  	}
  	return protectedKeys;
  }
@@ -227,7 +229,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  	const protectedAuthEnvKeys = promotePrefixedAuthEnvironment(env);
  	if (authCredentials) for (const [methodId, credential] of Object.entries(authCredentials)) {
  		addAuthCredentialEnvKeys(protectedAuthEnvKeys, methodId, credential);
-@@ -3178,10 +3286,11 @@
+@@ -3178,10 +3286,11 @@ function resolveConfiguredAuthCredential(methodId, authCredentials) {
  	const configCredentials = authCredentials ?? {};
  	return configCredentials[methodId] ?? configCredentials[toEnvToken(methodId)];
  }
@@ -241,7 +243,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		stdio: [
  			"pipe",
  			"pipe",
-@@ -3286,28 +3395,12 @@
+@@ -3286,28 +3395,12 @@ function formatAvailableModelIds(models) {
  	const ids = models?.availableModels.map((model) => model.modelId.trim()).filter((modelId) => modelId.length > 0) ?? [];
  	return ids.length > 0 ? ids.join(", ") : "none advertised";
  }
@@ -271,7 +273,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  }
  //#endregion
  //#region src/acp/session-control-errors.ts
-@@ -3961,10 +4054,13 @@
+@@ -3961,10 +4054,13 @@ function resolveClientCapabilities(params) {
  			...params.elicitationModes.includes("url") ? { url: {} } : {}
  		} } : {}
  	};
@@ -287,7 +289,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  	};
  }
  function hasResponseField(response, field) {
-@@ -4067,6 +4163,27 @@
+@@ -4067,6 +4163,27 @@ function createNdJsonMessageStream(agentCommand, output, input) {
  		} })
  	};
  }
@@ -315,7 +317,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  var AcpClient = class {
  	options;
  	connection;
-@@ -4105,7 +4222,9 @@
+@@ -4105,7 +4222,9 @@ var AcpClient = class {
  			cwd: asAbsoluteCwd(options.cwd),
  			authPolicy: options.authPolicy ?? "skip",
  			permissionPolicy: snapshotPermissionPolicy(options.permissionPolicy),
@@ -326,7 +328,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		};
  		this.eventHandlers = {
  			onAcpMessage: this.options.onAcpMessage,
-@@ -4211,14 +4330,26 @@
+@@ -4211,14 +4330,26 @@ var AcpClient = class {
  		this.logAgentLaunch(launch);
  		await this.ensureLaunchSupport(launch);
  		const child = await this.spawnAgentProcess(launch);
@@ -353,7 +355,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  			if (!this.options.verbose) return;
  			process.stderr.write(chunk);
  		});
-@@ -4226,6 +4357,7 @@
+@@ -4226,6 +4357,7 @@ var AcpClient = class {
  		const output = Readable.toWeb(child.stdout);
  		const stream = this.createTappedStream(createNdJsonMessageStream(this.options.agentCommand, input, output));
  		const connection = this.createConnection(stream, launch);
@@ -361,7 +363,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		connection.signal.addEventListener("abort", () => {
  			this.recordAgentExit("connection_close", child.exitCode ?? null, child.signalCode ?? null);
  		}, { once: true });
-@@ -4237,6 +4369,10 @@
+@@ -4237,6 +4369,10 @@ var AcpClient = class {
  			startupStderr,
  			launch
  		});
@@ -372,7 +374,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  	}
  	async resolveAgentLaunchPlan() {
  		const configuredCommand = resolveAgentCommandParts(this.options.agentCommand, this.options.agentArgv);
-@@ -4253,7 +4389,12 @@
+@@ -4253,7 +4389,12 @@ var AcpClient = class {
  			geminiAcp: isGeminiAcpCommand(spawnCommand, args),
  			copilotAcp: isCopilotAcpCommand(spawnCommand, args),
  			claudeAcp: isClaudeAcpCommand(spawnCommand, args),
@@ -386,7 +388,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		};
  	}
  	logAgentLaunch(plan) {
-@@ -4279,24 +4420,33 @@
+@@ -4279,24 +4420,33 @@ var AcpClient = class {
  	}
  	async spawnAgentProcess(plan) {
  		const spawnCommand = buildAgentSpawnCommand(plan.spawnCommand, plan.args, process.platform, plan.spawnOptions.env);
@@ -426,7 +428,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		}).onRequest(methods.client.fs.readTextFile, async ({ params }) => {
  			return await this.handleReadTextFile(params);
  		}).onRequest(methods.client.fs.writeTextFile, async ({ params }) => {
-@@ -4312,6 +4462,11 @@
+@@ -4312,6 +4462,11 @@ var AcpClient = class {
  		}).onRequest(methods.client.terminal.release, async ({ params }) => {
  			return await this.handleReleaseTerminal(params);
  		});
@@ -438,7 +440,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		if (launch.devinAcp) app.onRequest("_cognition.ai/request_diagnostics", (params) => {
  			return params && typeof params === "object" && !Array.isArray(params) ? params : {};
  		}, async () => ({}));
-@@ -4333,12 +4488,12 @@
+@@ -4333,12 +4488,12 @@ var AcpClient = class {
  	async initializeProtocolConnection(connection, launch) {
  		const initializePromise = connection.initialize({
  			protocolVersion: PROTOCOL_VERSION,
@@ -453,7 +455,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  			clientInfo: resolveClientInfo(launch.devinAcp)
  		});
  		const initialized = launch.geminiAcp ? await withTimeout(initializePromise, resolveGeminiAcpStartupTimeoutMs()) : await initializePromise;
-@@ -4348,9 +4503,7 @@
+@@ -4348,9 +4503,7 @@ var AcpClient = class {
  	async handleInitializeFailure(params, error) {
  		params.startupFailure.dispose();
  		const normalizedError = await this.normalizeInitializeError(error, params.child, params.startupStderr);
@@ -464,7 +466,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		if (params.launch.geminiAcp && error instanceof TimeoutError) throw new GeminiAcpStartupTimeoutError(await buildGeminiAcpStartupTimeoutMessage(params.launch.spawnCommand), {
  			cause: error,
  			retryable: true
-@@ -4358,6 +4511,49 @@
+@@ -4358,6 +4511,49 @@ var AcpClient = class {
  		throw normalizedError;
  	}
  	createTappedStream(base) {
@@ -514,7 +516,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		const onAcpMessage = () => this.eventHandlers.onAcpMessage;
  		const onAcpOutputMessage = () => this.eventHandlers.onAcpOutputMessage;
  		const elicitationRequestIds = /* @__PURE__ */ new Set();
-@@ -4367,8 +4563,12 @@
+@@ -4367,8 +4563,12 @@ var AcpClient = class {
  		const shouldSuppressInboundReplaySessionUpdate = (message) => {
  			return this.suppressReplaySessionUpdateMessages && isSessionUpdateNotification(message);
  		};
@@ -528,7 +530,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  			if (requestId !== void 0) {
  				elicitationRequestIds.add(requestId);
  				return;
-@@ -4379,6 +4579,7 @@
+@@ -4379,6 +4579,7 @@ var AcpClient = class {
  			}
  		};
  		return {
@@ -536,7 +538,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  			readable: new ReadableStream({ async start(controller) {
  				const reader = base.readable.getReader();
  				try {
-@@ -4386,16 +4587,27 @@
+@@ -4386,16 +4587,27 @@ var AcpClient = class {
  						const { value, done } = await reader.read();
  						if (done) break;
  						if (!value) continue;
@@ -566,7 +568,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  				const promptOwner = promptRequestOwner(message);
  				if (promptOwner) bindPromptOwner(promptOwner);
  				const id = responseId(message);
-@@ -4403,10 +4615,20 @@
+@@ -4403,10 +4615,20 @@ var AcpClient = class {
  					onAcpOutputMessage()?.("outbound", message);
  					onAcpMessage()?.("outbound", message);
  				}
@@ -587,7 +589,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  					writer.releaseLock();
  				}
  			} })
-@@ -4422,7 +4644,10 @@
+@@ -4422,7 +4644,10 @@ var AcpClient = class {
  			const createPromise = this.runConnectionRequest(() => connection.newSession({
  				cwd: sessionCwd,
  				mcpServers: this.options.mcpServers ?? [],
@@ -599,7 +601,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  			}));
  			result = claudeAcp ? await withTimeout(createPromise, resolveClaudeAcpSessionCreateTimeoutMs()) : await createPromise;
  		} catch (error) {
-@@ -4454,6 +4679,7 @@
+@@ -4454,6 +4679,7 @@ var AcpClient = class {
  	}
  	async loadSessionWithOptions(sessionId, cwd = this.options.cwd, options = {}) {
  		const connection = this.getConnection();
@@ -607,7 +609,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		const sessionCwd = await resolveAgentSessionCwd(cwd, this.options.agentCommand);
  		const previousSuppression = this.applySessionUpdateSuppression(Boolean(options.suppressReplayUpdates));
  		let response;
-@@ -4461,7 +4687,9 @@
+@@ -4461,7 +4687,9 @@ var AcpClient = class {
  			response = await this.runConnectionRequest(() => connection.loadSession({
  				sessionId,
  				cwd: sessionCwd,
@@ -618,7 +620,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  			}));
  			await this.waitForSessionUpdateDrain(options.replayIdleMs ?? REPLAY_IDLE_MS, options.replayDrainTimeoutMs ?? REPLAY_DRAIN_TIMEOUT_MS);
  		} finally {
-@@ -4474,11 +4702,14 @@
+@@ -4474,11 +4702,14 @@ var AcpClient = class {
  	}
  	async resumeSession(sessionId, cwd = this.options.cwd) {
  		const connection = this.getConnection();
@@ -634,7 +636,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		}));
  		this.loadedSessionId = sessionId;
  		const result = toReconnectedSessionResult(response);
-@@ -4590,15 +4821,17 @@
+@@ -4590,15 +4821,17 @@ var AcpClient = class {
  			throw maybeWrapSessionControlError("session/set_config_option", error, `for "${configId}"="${value}"`);
  		}
  	}
@@ -658,7 +660,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  	}
  	async setSessionModelThroughConfig(sessionId, modelId, configId) {
  		const connection = this.getConnection();
-@@ -4608,7 +4841,9 @@
+@@ -4608,7 +4841,9 @@ var AcpClient = class {
  				configId,
  				value: modelId
  			}));
@@ -669,7 +671,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  			return response;
  		} catch (error) {
  			return this.throwSessionModelError("session/set_config_option", modelId, error);
-@@ -4747,6 +4982,14 @@
+@@ -4747,6 +4982,14 @@ var AcpClient = class {
  		this.connection?.close?.();
  	}
  	async terminateAgentProcess(child) {
@@ -684,7 +686,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		const stdinCloseGraceMs = resolveAgentCloseAfterStdinEndMs(this.options.agentCommand);
  		this.endAgentStdin(child);
  		let exited = await waitForChildExit(child, stdinCloseGraceMs);
-@@ -4864,7 +5107,7 @@
+@@ -4864,7 +5107,7 @@ var AcpClient = class {
  	}
  	selectAuthMethod(methods) {
  		for (const method of methods) {
@@ -693,7 +695,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  			if (envCredential) return {
  				methodId: method.id,
  				credential: envCredential,
-@@ -4890,7 +5133,7 @@
+@@ -4890,7 +5133,7 @@ var AcpClient = class {
  	}
  	readAgentSpecificEnvCredential(methodId) {
  		if (!this.isGrokBuildAcpCommand() || methodId !== "xai.api_key") return;
@@ -702,7 +704,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		return typeof value === "string" && value.trim().length > 0 ? value : void 0;
  	}
  	selectAgentManagedAuthMethod(methodId) {
-@@ -4915,9 +5158,9 @@
+@@ -4915,9 +5158,9 @@ var AcpClient = class {
  		await connection.authenticate({ methodId: selected.methodId });
  		this.log(`authenticated with method ${selected.methodId} (${selected.source})`);
  	}
@@ -714,7 +716,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		if (hostResponse) return hostResponse;
  		const { response, recorded } = await this.resolvePermissionRequestFromMode(params);
  		if (!recorded) {
-@@ -4926,14 +5169,81 @@
+@@ -4926,14 +5169,81 @@ var AcpClient = class {
  		}
  		return response;
  	}
@@ -798,7 +800,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		})).then((response) => ({
  			kind: "response",
  			response
-@@ -4970,7 +5280,7 @@
+@@ -4970,7 +5280,7 @@ var AcpClient = class {
  	isElicitationSessionCancelling(sessionId) {
  		return this.closing || this.cancellingSessionIds.has(sessionId);
  	}
@@ -807,7 +809,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		if (!this.options.onPermissionRequest) return;
  		const signal = this.cancellationSignalForSession(params.sessionId);
  		try {
-@@ -4978,7 +5288,7 @@
+@@ -4978,7 +5288,7 @@ var AcpClient = class {
  				sessionId: params.sessionId,
  				raw: params,
  				inferredKind: inferToolKind(params)
@@ -816,7 +818,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  			return this.hostPermissionDecisionResponse(params, signal, decision);
  		} catch (error) {
  			return this.hostPermissionErrorResponse(params, signal, error);
-@@ -5028,6 +5338,12 @@
+@@ -5028,6 +5338,12 @@ var AcpClient = class {
  	attachAgentLifecycleObservers(child) {
  		child.once("exit", (exitCode, signal) => {
  			this.recordAgentExit("process_exit", exitCode, signal);
@@ -829,7 +831,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		});
  		child.once("close", (exitCode, signal) => {
  			this.recordAgentExit("process_close", exitCode, signal);
-@@ -5100,6 +5416,9 @@
+@@ -5100,6 +5416,9 @@ var AcpClient = class {
  			return await this.filesystem.readTextFile(params);
  		} catch (error) {
  			this.recordPermissionError(params.sessionId, error);
@@ -839,7 +841,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  			throw error;
  		}
  	}
-@@ -5239,6 +5558,7 @@
+@@ -5239,6 +5558,7 @@ function applyConversation(record, conversation) {
  	record.cumulative_token_usage = conversation.cumulative_token_usage;
  	record.cumulative_cost = conversation.cumulative_cost;
  	record.request_token_usage = conversation.request_token_usage;
@@ -847,7 +849,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  }
  //#endregion
  //#region src/runtime/engine/session-options.ts
-@@ -5701,7 +6021,8 @@
+@@ -5701,7 +6021,8 @@ function cloneSessionConversation(conversation) {
  		updated_at: conversation.updated_at,
  		cumulative_token_usage: deepClone(conversation.cumulative_token_usage ?? {}),
  		cumulative_cost: cloneUsageCost(conversation.cumulative_cost),
@@ -857,7 +859,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  	};
  }
  function cloneUsageCost(cost) {
-@@ -5771,10 +6092,20 @@
+@@ -5771,10 +6092,20 @@ function recordSessionUpdate(conversation, state, notification, timestamp = isoN
  	trimConversationForRuntime(conversation);
  	return acpx;
  }
@@ -880,7 +882,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  	updateConversationTimestamp(conversation, timestamp);
  	trimConversationForRuntime(conversation);
  	return true;
-@@ -6136,6 +6467,7 @@
+@@ -6136,6 +6467,7 @@ async function connectAndLoadSession(options) {
  	pendingAgentSessionId = loadState.pendingAgentSessionId;
  	sessionModels = loadState.sessionModels;
  	const preferenceReplay = await replayFreshSessionPreferences({
@@ -888,13 +890,13 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  		client,
  		record,
  		createdFreshSession,
-@@ -6193,14 +6525,16 @@
+@@ -6193,14 +6525,16 @@ function logReconnectAttempt(record, storedProcessAlive, shouldReconnect, verbos
  	if (shouldReconnect) process.stderr.write(`[acpx] saved session pid ${record.pid} is dead; respawning agent and attempting session reconnect\n`);
  }
  async function replayFreshSessionPreferences(params) {
 -	if (!params.createdFreshSession) return {
-+	// A load acknowledgement can reset the model even when the conversation survives.
-+	// Retained connections have no new model acknowledgement to replay.
++	// A load acknowledgement can reset the model or config options even when the conversation survives.
++	// Retained connections have no new acknowledgement to replay.
 +	if (params.reusingLoadedSession) return {
  		modelReplay: { replayed: false },
  		configReplay: { replayed: false }
@@ -907,16 +909,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  			client: params.client,
  			sessionId: params.sessionId,
  			desiredModeId: params.desiredModeId,
-@@ -6219,7 +6553,7 @@
- 			verbose: params.verbose,
- 			suppressWarnings: params.suppressWarnings
- 		});
--		configReplay = await replayDesiredConfigOptions({
-+		if (params.createdFreshSession) configReplay = await replayDesiredConfigOptions({
- 			client: params.client,
- 			record: params.record,
- 			sessionId: params.sessionId,
-@@ -6435,6 +6769,27 @@
+@@ -6435,6 +6769,27 @@ async function withConnectedSession(options) {
  //#region src/runtime/engine/prompt-turn.ts
  const SESSION_REPLY_IDLE_MS = 1e3;
  const SESSION_REPLY_DRAIN_TIMEOUT_MS = 5e3;
@@ -944,7 +937,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  async function runPromptTurn(params) {
  	try {
  		const promptPromise = params.client.prompt(params.sessionId, params.prompt, params.onPromptRequestStarted, params.onElicitation);
-@@ -6444,7 +6799,23 @@
+@@ -6444,7 +6799,23 @@ async function runPromptTurn(params) {
  			idleMs: SESSION_REPLY_IDLE_MS,
  			timeoutMs: SESSION_REPLY_DRAIN_TIMEOUT_MS
  		}).catch(() => {});
@@ -970,6 +963,7 @@ diff --git a/dist/live-checkpoint-BSIrfgVo.js b/dist/live-checkpoint-BSIrfgVo.js
  			source: "rpc"
 diff --git a/dist/owned-process-group.js b/dist/owned-process-group.js
 new file mode 100644
+index 0000000..287aca5
 --- /dev/null
 +++ b/dist/owned-process-group.js
 @@ -0,0 +1,57 @@
@@ -1031,6 +1025,7 @@ new file mode 100644
 +  return close;
 +}
 diff --git a/dist/runtime.d.ts b/dist/runtime.d.ts
+index e8102ac..d904f04 100644
 --- a/dist/runtime.d.ts
 +++ b/dist/runtime.d.ts
 @@ -1,7 +1,8 @@
@@ -1043,7 +1038,7 @@ diff --git a/dist/runtime.d.ts b/dist/runtime.d.ts
  //#region src/agent-registry.d.ts
  declare const DEFAULT_AGENT_NAME = "codex";
  //#endregion
-@@ -44,6 +45,7 @@
+@@ -44,6 +45,7 @@ type AcpRuntimeTurnAttachment = {
    data: string;
  };
  type AcpRuntimeTurnInput = {
@@ -1051,7 +1046,7 @@ diff --git a/dist/runtime.d.ts b/dist/runtime.d.ts
    handle: AcpRuntimeHandle;
    text: string;
    attachments?: AcpRuntimeTurnAttachment[];
-@@ -141,6 +143,11 @@
+@@ -141,6 +143,11 @@ type AcpTextDeltaOriginMeta = {
    kind?: string;
    source?: string;
  };
@@ -1063,10 +1058,19 @@ diff --git a/dist/runtime.d.ts b/dist/runtime.d.ts
  type AcpRuntimeEvent = {
    type: "text_delta";
    text: string;
-@@ -186,6 +193,10 @@
+@@ -186,6 +193,19 @@ type AcpRuntimeEvent = {
     * non-null `input` schema.
     */
    availableCommands?: AcpRuntimeAvailableCommand[];
++  /**
++   * Paperclip patch: the ACP update's `_meta`, forwarded by reference and
++   * unvalidated. Producer-controlled; consumers must bound and allowlist it.
++   */
++  _meta?: Record<string, unknown>;
++} | {
++  type: "plan";
++  tag: "plan";
++  entries: AcpRuntimePlanEntry[];
 +} | {
 +  type: "plan";
 +  tag: "plan";
@@ -1074,7 +1078,19 @@ diff --git a/dist/runtime.d.ts b/dist/runtime.d.ts
  } | {
    type: "tool_call";
    text: string;
-@@ -312,7 +323,51 @@
+@@ -198,6 +218,11 @@ type AcpRuntimeEvent = {
+   rawInput?: unknown;
+   rawOutput?: unknown;
+   content?: ToolCallContent[];
++  /**
++   * Paperclip patch: the ACP update's `_meta`, forwarded by reference and
++   * unvalidated. Producer-controlled; consumers must bound and allowlist it.
++   */
++  _meta?: Record<string, unknown>;
+ } |
+ /**
+  * Compatibility terminal event emitted by runTurn(...). startTurn(...).events
+@@ -312,7 +337,51 @@ type AcpRuntimeOptions = {
    elicitationModes?: readonly AcpElicitationMode[];
    onPermissionRequest?: (req: AcpPermissionRequest, ctx: {
      signal: AbortSignal;
@@ -1126,7 +1142,7 @@ diff --git a/dist/runtime.d.ts b/dist/runtime.d.ts
  };
  type AcpFileSessionStoreOptions = {
    stateDir: string;
-@@ -369,6 +424,7 @@
+@@ -369,6 +438,7 @@ declare class AcpRuntimeManager {
    private createAndSaveRuntimeRecord;
    private retainInitializedSessionOwner;
    startTurn(input: {
@@ -1134,7 +1150,7 @@ diff --git a/dist/runtime.d.ts b/dist/runtime.d.ts
      handle: AcpRuntimeHandle;
      text: string;
      attachments?: AcpRuntimeTurnAttachment[];
-@@ -414,6 +470,7 @@
+@@ -414,6 +484,7 @@ declare class AcpRuntimeManager {
    private cleanupRuntimeTurn;
    private finalizeRuntimeTurnRecord;
    runTurn(input: {
@@ -1143,9 +1159,10 @@ diff --git a/dist/runtime.d.ts b/dist/runtime.d.ts
      text: string;
      attachments?: AcpRuntimeTurnAttachment[];
 diff --git a/dist/runtime.js b/dist/runtime.js
+index a1f4a70..f8603a2 100644
 --- a/dist/runtime.js
 +++ b/dist/runtime.js
-@@ -153,7 +153,7 @@
+@@ -153,7 +153,7 @@ function resolveTextChunk(params) {
  		const contentType = asTrimmedString(contentRaw.type);
  		if (contentType && contentType !== "text") return null;
  		const text = asString(contentRaw.text);
@@ -1154,7 +1171,7 @@ diff --git a/dist/runtime.js b/dist/runtime.js
  			type: "text_delta",
  			text,
  			stream: params.stream,
-@@ -162,7 +162,7 @@
+@@ -162,7 +162,7 @@ function resolveTextChunk(params) {
  		};
  	}
  	const text = asString(params.payload.text);
@@ -1163,7 +1180,15 @@ diff --git a/dist/runtime.js b/dist/runtime.js
  	return {
  		type: "text_delta",
  		text,
-@@ -371,7 +371,7 @@
+@@ -321,6 +321,7 @@ function assignForwardedToolPayload(event, payload) {
+ 	if (Object.prototype.hasOwnProperty.call(payload, "rawInput")) event.rawInput = payload.rawInput;
+ 	if (Object.prototype.hasOwnProperty.call(payload, "rawOutput")) event.rawOutput = payload.rawOutput;
+ 	if (shouldForwardArray(payload.content)) event.content = payload.content;
++	if (isRecord(payload._meta)) event._meta = payload._meta;
+ }
+ function parsePromptEventLine(line) {
+ 	const trimmed = line.trim();
+@@ -371,7 +372,7 @@ const PROMPT_EVENT_PARSERS = {
  	current_mode_update: (payload) => statusUpdateEvent("current_mode_update", payload),
  	config_option_update: (payload) => statusUpdateEvent("config_option_update", payload),
  	session_info_update: (payload) => statusUpdateEvent("session_info_update", payload),
@@ -1172,11 +1197,35 @@ diff --git a/dist/runtime.js b/dist/runtime.js
  	client_operation: clientOperationEvent,
  	update: updateStatusEvent,
  	done: () => null,
-@@ -423,6 +423,34 @@
- 		tag: "available_commands_update",
+@@ -388,11 +389,12 @@ function usageUpdateEvent(payload) {
+ 		used,
+ 		size,
+ 		cost: normalizeUsageCost(payload.cost),
+-		breakdown: normalizeUsageBreakdown(meta?.usage)
++		breakdown: normalizeUsageBreakdown(meta?.usage),
++		meta
+ 	});
+ }
+ function buildUsageUpdateEvent(parts) {
+-	const { used, size, cost, breakdown } = parts;
++	const { used, size, cost, breakdown, meta } = parts;
+ 	return {
+ 		type: "status",
+ 		text: used != null && size != null ? `usage updated: ${used}/${size}` : "usage updated",
+@@ -400,7 +402,8 @@ function buildUsageUpdateEvent(parts) {
+ 		...used != null ? { used } : {},
+ 		...size != null ? { size } : {},
+ 		...cost ? { cost } : {},
+-		...breakdown ? { breakdown } : {}
++		...breakdown ? { breakdown } : {},
++		...meta ? { _meta: meta } : {}
+ 	};
+ }
+ function availableCommandsUpdateEvent(payload) {
+@@ -424,6 +427,34 @@ function availableCommandsUpdateEvent(payload) {
  		availableCommands
  	};
-+}
+ }
 +function persistedGoalCapability(goal) {
 +	if (!isRecord(goal) || goal.version !== 1 || goal.controlMethod !== "_session/goal" || !Array.isArray(goal.actions)) return;
 +	const actions = goal.actions.filter((action) => ["set", "pause", "resume", "clear"].includes(action));
@@ -1204,10 +1253,21 @@ diff --git a/dist/runtime.js b/dist/runtime.js
 +		entries.push({ content, status, ...priority ? { priority } : {} });
 +	}
 +	return { type: "plan", tag: "plan", entries };
- }
++}
  function normalizeUsageCost(value) {
  	if (!isRecord(value)) return;
-@@ -812,7 +840,22 @@
+ 	const amount = asOptionalFiniteNumber(value.amount);
+@@ -474,7 +505,8 @@ function statusUpdateEvent(tag, payload) {
+ 	return {
+ 		type: "status",
+ 		text,
+-		tag
++		tag,
++		...isRecord(payload._meta) ? { _meta: payload._meta } : {}
+ 	};
+ }
+ function clientOperationEvent(payload, tag) {
+@@ -812,7 +844,22 @@ var AcpRuntimeManager = class {
  		this.deps = deps;
  	}
  	createClient(options) {
@@ -1231,7 +1291,7 @@ diff --git a/dist/runtime.js b/dist/runtime.js
  	}
  	createSessionOwner(input) {
  		const owner = {
-@@ -821,12 +864,16 @@
+@@ -821,12 +868,16 @@ var AcpRuntimeManager = class {
  			pendingSessionUpdates: []
  		};
  		input.client.setEventHandlers({
@@ -1248,7 +1308,7 @@ diff --git a/dist/runtime.js b/dist/runtime.js
  		const active = owner.activeTurn;
  		if (active) {
  			const { task, turn } = active;
-@@ -863,6 +910,9 @@
+@@ -863,6 +914,9 @@ var AcpRuntimeManager = class {
  		projection.checkpoint.request();
  	}
  	routeOwnedClientOperation(owner, operation) {
@@ -1258,7 +1318,7 @@ diff --git a/dist/runtime.js b/dist/runtime.js
  		const active = owner.activeTurn;
  		if (!active) return;
  		const { task, turn } = active;
-@@ -1008,6 +1058,8 @@
+@@ -1008,6 +1062,8 @@ var AcpRuntimeManager = class {
  		record.closedAt = void 0;
  		record.protocolVersion = owner.client.initializeResult?.protocolVersion;
  		record.agentCapabilities = owner.client.initializeResult?.agentCapabilities;
@@ -1267,7 +1327,7 @@ diff --git a/dist/runtime.js b/dist/runtime.js
  		applyLifecycleSnapshotToRecord(record, owner.client.getAgentLifecycleSnapshot());
  	}
  	async finishBufferedOwnerControl(owner, record) {
-@@ -1086,6 +1138,11 @@
+@@ -1086,6 +1142,11 @@ var AcpRuntimeManager = class {
  		record.closed = false;
  		record.closedAt = void 0;
  		this.closingActiveRecords.delete(record.acpxRecordId);
@@ -1279,7 +1339,7 @@ diff --git a/dist/runtime.js b/dist/runtime.js
  		await this.options.sessionStore.save(record);
  		return record;
  	}
-@@ -1149,6 +1206,8 @@
+@@ -1149,6 +1210,8 @@ var AcpRuntimeManager = class {
  		this.closingActiveRecords.delete(record.acpxRecordId);
  		record.protocolVersion = client.initializeResult?.protocolVersion;
  		record.agentCapabilities = client.initializeResult?.agentCapabilities;
@@ -1288,7 +1348,7 @@ diff --git a/dist/runtime.js b/dist/runtime.js
  		applyConfigOptionsToRecord(record, session.sessionResult);
  		const modelApplication = await applyRequestedModelIfAdvertised({
  			client,
-@@ -1301,9 +1360,11 @@
+@@ -1301,9 +1364,11 @@ var AcpRuntimeManager = class {
  				client: turn.client,
  				sessionId,
  				prompt: task.promptInput,
@@ -1300,7 +1360,7 @@ diff --git a/dist/runtime.js b/dist/runtime.js
  				onPromptRequestStarted: () => task.promptStarted.resolve(),
  				onElicitation: task.input.onElicitation
  			});
-@@ -1469,6 +1530,10 @@
+@@ -1469,6 +1534,10 @@ var AcpRuntimeManager = class {
  			setSessionConfigOption: async (configId, value) => {
  				return (await task.state.activeController.setResolvedSessionConfigOption(configId, value)).response;
  			},
@@ -1311,7 +1371,7 @@ diff --git a/dist/runtime.js b/dist/runtime.js
  			setResolvedSessionConfigOption: async (configId, value) => await this.setRuntimeResolvedSessionConfigOption(task, turn, configId, value)
  		};
  	}
-@@ -1575,6 +1640,8 @@
+@@ -1575,6 +1644,8 @@ var AcpRuntimeManager = class {
  		reconcileAgentSessionId(turn.record, turn.record.agentSessionId);
  		turn.record.protocolVersion = turn.client.initializeResult?.protocolVersion;
  		turn.record.agentCapabilities = turn.client.initializeResult?.agentCapabilities;
@@ -1320,11 +1380,10 @@ diff --git a/dist/runtime.js b/dist/runtime.js
  		turn.record.acpx = turn.acpxState;
  		applyConversation(turn.record, turn.conversation);
  		applyLifecycleSnapshotToRecord(turn.record, turn.client.getAgentLifecycleSnapshot());
-@@ -1706,6 +1773,17 @@
- 			applyDesiredConfigOptionToRecord(connectedRecord, configId, value);
+@@ -1707,6 +1778,17 @@ var AcpRuntimeManager = class {
  		});
  		await this.options.sessionStore.save(result.record);
-+	}
+ 	}
 +	async requestExtension(input) {
 +		const recordId = input.handle.acpxRecordId ?? input.handle.sessionKey;
 +		return await this.withManagerLock(this.runtimeOperationLocks, recordId, async () => {
@@ -1335,10 +1394,11 @@ diff --git a/dist/runtime.js b/dist/runtime.js
 +				return await client.requestExtension(input.method, input.params);
 +			})).value;
 +		});
- 	}
++	}
  	async cancel(handle) {
  		await this.activeControllers.get(handle.acpxRecordId ?? handle.sessionKey)?.requestCancelActivePrompt();
-@@ -2055,6 +2133,7 @@
+ 	}
+@@ -2055,6 +2137,7 @@ var AcpxRuntime = class {
  		const turnPromise = this.getManager().then((manager) => manager.startTurn({
  			handle,
  			text: input.text,
@@ -1346,7 +1406,7 @@ diff --git a/dist/runtime.js b/dist/runtime.js
  			attachments: input.attachments,
  			mode: input.mode,
  			sessionMode: state.mode,
-@@ -2087,6 +2166,7 @@
+@@ -2087,6 +2170,7 @@ var AcpxRuntime = class {
  		yield* (await this.getManager()).runTurn({
  			handle,
  			text: input.text,
@@ -1354,11 +1414,10 @@ diff --git a/dist/runtime.js b/dist/runtime.js
  			attachments: input.attachments,
  			mode: input.mode,
  			sessionMode: state.mode,
-@@ -2118,6 +2198,14 @@
- 	async setConfigOption(input) {
+@@ -2119,6 +2203,14 @@ var AcpxRuntime = class {
  		const { handle, state } = this.resolveManagerHandle(input.handle);
  		await (await this.getManager()).setConfigOption(handle, input.key, input.value, state.mode);
-+	}
+ 	}
 +	async requestExtension(input) {
 +		const { handle, state } = this.resolveManagerHandle(input.handle);
 +		return await (await this.getManager()).requestExtension({
@@ -1366,10 +1425,12 @@ diff --git a/dist/runtime.js b/dist/runtime.js
 +			handle,
 +			sessionMode: input.sessionMode ?? state.mode
 +		});
- 	}
++	}
  	async cancel(input) {
  		const { handle } = this.resolveManagerHandle(input.handle);
+ 		await (await this.getManager()).cancel(handle);
 diff --git a/dist/session-options-DwRDODlr.d.ts b/dist/session-options-DwRDODlr.d.ts
+index c3da164..ff2c3c0 100644
 --- a/dist/session-options-DwRDODlr.d.ts
 +++ b/dist/session-options-DwRDODlr.d.ts
 @@ -1,4 +1,5 @@
@@ -1378,7 +1439,7 @@ diff --git a/dist/session-options-DwRDODlr.d.ts b/dist/session-options-DwRDODlr.
  //#region src/prompt-content.d.ts
  type PromptInput = ContentBlock[];
  //#endregion
-@@ -27,6 +28,8 @@
+@@ -27,6 +28,8 @@ type AcpElicitationContext = {
    requestId: JsonRpcId;
    /** Aborts with the request itself or its owning prompt turn/session. */
    signal: AbortSignal;
@@ -1387,7 +1448,7 @@ diff --git a/dist/session-options-DwRDODlr.d.ts b/dist/session-options-DwRDODlr.
  };
  type AcpElicitationResponseMeta = {
    _meta?: Record<string, unknown> | null;
-@@ -116,6 +119,37 @@
+@@ -116,6 +119,37 @@ type AcpClientOptions = {
      };
      env?: Record<string, string>;
    };
@@ -1425,7 +1486,7 @@ diff --git a/dist/session-options-DwRDODlr.d.ts b/dist/session-options-DwRDODlr.
    onAcpMessage?: (direction: AcpMessageDirection, message: AcpJsonRpcMessage) => void;
    onAcpOutputMessage?: (direction: AcpMessageDirection, message: AcpJsonRpcMessage) => void;
    onSessionUpdate?: (notification: SessionNotification) => void;
-@@ -123,6 +157,8 @@
+@@ -123,6 +157,8 @@ type AcpClientOptions = {
    onPermissionEscalation?: (event: PermissionEscalationEvent) => void;
    onPermissionRequest?: (req: AcpPermissionRequest, ctx: {
      signal: AbortSignal;
@@ -1434,7 +1495,7 @@ diff --git a/dist/session-options-DwRDODlr.d.ts b/dist/session-options-DwRDODlr.
    }) => Promise<AcpPermissionDecision | undefined>;
  };
  declare const SESSION_RECORD_SCHEMA: "acpx.session.v1";
-@@ -263,12 +299,16 @@
+@@ -263,12 +299,16 @@ type SessionRecord = {
    lastAgentDisconnectReason?: string;
    protocolVersion?: number;
    agentCapabilities?: AgentCapabilities;

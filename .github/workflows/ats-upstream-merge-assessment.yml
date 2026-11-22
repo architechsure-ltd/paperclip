@@ -1,0 +1,99 @@
+name: ATS Upstream Merge Assessment
+
+# Diagnostics only: never push, publish, deploy, or use secrets.
+on:
+  push:
+    branches:
+      - ats/upstream-2026-1117-integration
+    paths:
+      - .github/workflows/ats-upstream-merge-assessment.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  three-way-assessment:
+    name: Assess ATS changes against pinned upstream stable
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout pinned upstream-based integration branch
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Assess merge without altering GitHub or production
+        shell: bash
+        env:
+          EXPECTED_UPSTREAM: c0f132898d2a2677312d8c72096187b27a3d9a38
+          EXPECTED_ATS: 96a712e1968be89701ec7fc9f5ae452dce081914
+        run: |
+          set -euo pipefail
+          if grep -R -nE '^  schedule:' .github/workflows; then
+            echo "::error::ATS integration candidate still has scheduled GitHub Actions"
+            exit 1
+          fi
+          if [ -f .github/workflows/refresh-lockfile.yml ]; then
+            echo "::error::Inherited lockfile auto-merge bot is still present"
+            exit 1
+          fi
+          echo "ATS scheduled-action and lockfile bot checks: PASS"
+          git config user.name "ATS read-only assessment"
+          git config user.email "ats-assessment@users.noreply.github.com"
+          git fetch --no-tags origin "$EXPECTED_ATS"
+          git remote add upstream https://github.com/paperclipai/paperclip.git
+          git fetch --no-tags upstream "$EXPECTED_UPSTREAM"
+          git cat-file -e "$EXPECTED_ATS^{commit}"
+          git cat-file -e "$EXPECTED_UPSTREAM^{commit}"
+          git merge-base --is-ancestor "$EXPECTED_UPSTREAM" HEAD || {
+            echo "::error::Integration branch does not descend from the pinned upstream stable baseline"
+            exit 1
+          }
+          echo "Pinned upstream baseline: $EXPECTED_UPSTREAM"
+          echo "Pinned ATS head: $EXPECTED_ATS"
+          set +e
+          git merge --no-commit --no-ff "$EXPECTED_ATS" > /tmp/ats-merge-output.txt 2>&1
+          rc=$?
+          set -e
+          cat /tmp/ats-merge-output.txt
+          echo "### ATS upstream merge assessment" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Upstream stable: \`$EXPECTED_UPSTREAM\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ATS source: \`$EXPECTED_ATS\`" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$rc" -eq 0 ]; then
+            echo "RESULT: clean automatic three-way merge (NOT committed)" 
+            echo "- Automatic merge: clean (NOT committed)" >> "$GITHUB_STEP_SUMMARY"
+            git diff --cached --stat | tail -n 80
+          elif [ -n "$(git ls-files -u)" ]; then
+            git diff --name-only --diff-filter=U | sort -u > /tmp/ats-conflicts.txt
+            echo "RESULT: content conflicts (NOT committed)"
+            echo "- Automatic merge: needs reconciliation (NOT committed)" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Conflicting files: $(wc -l < /tmp/ats-conflicts.txt)" >> "$GITHUB_STEP_SUMMARY"
+            echo '#### Conflicting files' >> "$GITHUB_STEP_SUMMARY"
+            sed 's/^/- \`/;s/$/\`/' /tmp/ats-conflicts.txt >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/ats-conflicts.txt
+            for path in server/src/routes/issues.ts server/src/services/heartbeat.ts server/src/services/heartbeat/queue.ts server/src/services/legacy-execution-recovery.ts patches/acpx@0.13.1.patch doc/DEVELOPING.md; do
+              if grep -q '^<<<<<<< ' "$path"; then
+                echo "===== CONFLICT HUNKS: $path ====="
+                awk '
+                  /^<<<<<<< / { inside=1; count++ }
+                  inside && lines < 300 { print NR ":" $0; lines++ }
+                  /^>>>>>>> / { inside=0; print ""; if(count >= 12) exit }
+                ' "$path"
+                echo "===== END: $path ====="
+              fi
+            done
+            echo "===== SEMANTIC REASSIGNMENT CONTEXT ====="
+            start_line=$(grep -n 'const isHumanSelfHandoff\|const isLegacySelfHandoff' server/src/routes/issues.ts | head -n 1 | cut -d: -f1 || true)
+            if [ -n "$start_line" ]; then
+              low=$((start_line > 6 ? start_line - 6 : 1))
+              high=$((start_line + 110))
+              sed -n "${low},${high}p" server/src/routes/issues.ts
+            fi
+            echo "===== END SEMANTIC CONTEXT ====="
+          else
+            echo "::error::git merge failed without conflict entries (exit $rc)"
+            exit "$rc"
+          fi
+          echo "No branch updates, pushes, deployments, or paid model calls were performed."

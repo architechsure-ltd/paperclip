@@ -1,0 +1,128 @@
+name: ATS Upstream Merge Candidate Check
+
+# Read-only rehearsal of the upstream-to-ATS integration. No pushes or secrets.
+on:
+  push:
+    branches:
+      - ats/upstream-2026-1117-integration
+    paths:
+      - .github/workflows/ats-upstream-merge-candidate.yml
+      - .github/scripts/ats-reconcile-upstream.py
+      - server/src/__tests__/heartbeat-runtime-mcp-servers.test.ts
+      - server/src/services/heartbeat/run-preparation.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PAPERCLIP_TEST_POSTGRES_TEMPLATE: "0"
+      OPENAI_BASE_URL: http://127.0.0.1:9
+      ANTHROPIC_BASE_URL: http://127.0.0.1:9
+      GOOGLE_GENERATIVE_AI_BASE_URL: http://127.0.0.1:9
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Merge ATS branch into pinned upstream in a temporary checkout
+        shell: bash
+        env:
+          UPSTREAM: c0f132898d2a2677312d8c72096187b27a3d9a38
+          ATS_MASTER: 96a712e1968be89701ec7fc9f5ae452dce081914
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/ats/upstream-2026-1117-integration"
+          git merge-base --is-ancestor "$UPSTREAM" HEAD
+          if grep -R -nE '^  schedule:' .github/workflows; then
+            echo "::error::Scheduled upstream workflow reintroduced"
+            exit 1
+          fi
+          test ! -f .github/workflows/refresh-lockfile.yml
+          git config user.name "ATS temporary reconciliation"
+          git config user.email "ats-reconciliation@users.noreply.github.com"
+          git fetch --no-tags origin "$ATS_MASTER"
+          git remote add upstream https://github.com/paperclipai/paperclip.git
+          git fetch --no-tags upstream "$UPSTREAM"
+          set +e
+          git merge --no-ff --no-commit "$ATS_MASTER" > /tmp/ats-rehearsal.log 2>&1
+          merge_rc=$?
+          set -e
+          if [ "$merge_rc" -eq 0 ]; then
+            echo "Unexpectedly clean merge; no conflict resolution required."
+          elif [ -n "$(git ls-files -u)" ]; then
+            python3 .github/scripts/ats-reconcile-upstream.py
+          else
+            cat /tmp/ats-rehearsal.log
+            echo "::error::Merge failed without textual conflicts"
+            exit "$merge_rc"
+          fi
+          git diff --cached --check
+          echo "===== MERGED FILE SUMMARY ====="
+          git diff --cached --stat | tail -n 85
+          echo "===== ACPX PATCH STRUCTURAL CHECK ====="
+          git apply --stat patches/acpx@0.13.1.patch >/dev/null
+          echo "Reconciliation rehearsal: PASS syntax and expected conflict shapes"
+          echo "No push, merge commit, database migration, or provider execution."
+
+      - name: Configure Node 24 and pnpm 9
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          package-manager-cache: false
+
+      - name: Configure pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 9.15.4
+          run_install: false
+
+      - name: Frozen dependency install and workspace prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          git diff --exit-code -- pnpm-lock.yaml
+          pnpm run preflight:workspace-links
+          pnpm --filter @paperclipai/plugin-sdk ensure-build-deps
+
+      - name: Narrow MCP large-assignment regression (fail fast)
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vitest run server/src/__tests__/heartbeat-runtime-mcp-servers.test.ts \
+            -t "preserves exact permissions when an aggregate assignment exceeds" \
+            --maxWorkers=1
+
+      - name: Integrated typecheck and application build
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm run typecheck
+          pnpm run build
+
+      - name: ATS and upstream handover and recovery regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm exec vitest run \
+            server/src/__tests__/legacy-review-handover.integration.test.ts \
+            server/src/__tests__/execution-stage-wake.test.ts \
+            server/src/__tests__/issue-execution-policy-routes.test.ts \
+            server/src/__tests__/deferred-execution-receipt-work.test.ts \
+            server/src/__tests__/heartbeat-runtime-mcp-servers.test.ts \
+            --maxWorkers=1
+          node --import ./server/node_modules/tsx/dist/loader.mjs --test \
+            server/src/__tests__/acpx-owned-process-lifecycle.test.mjs
+          echo "### ATS pinned upstream + fork integrated validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Exact ACPX patch and frozen dependencies applied." >> "$GITHUB_STEP_SUMMARY"
+          echo "- ATS review handover, wake, execution and lifecycle regressions passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Workspace typecheck and application build passed." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Temporary checkout only. No branch merge, deployment or paid provider invocation." >> "$GITHUB_STEP_SUMMARY"
+

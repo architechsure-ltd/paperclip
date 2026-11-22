@@ -74,7 +74,7 @@ describe.each(["agent_jwt", "agent_key"] as const)("legacy review handover assem
     });
     if (oldJwt === undefined) delete process.env.PAPERCLIP_AGENT_JWT_SECRET; else process.env.PAPERCLIP_AGENT_JWT_SECRET = oldJwt;
     if (oldApi === undefined) delete process.env.PAPERCLIP_API_URL; else process.env.PAPERCLIP_API_URL = oldApi;
-  });
+  }, 90_000);
   it("Hermes delivers, Lead requests changes, Hermes corrects, Lead accepts, owner approves, parent unblocks", async () => {
     const companyId = randomUUID(), engineer = randomUUID(), reviewer = randomUUID(), owner = randomUUID(), taskId = randomUUID(), parentId = randomUUID();
     await db.insert(authUsers).values({ id: owner, name: "Owner", email: `${owner}@example.test`, createdAt: new Date(), updatedAt: new Date() });

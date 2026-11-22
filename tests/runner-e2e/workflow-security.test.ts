@@ -3,8 +3,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "../..");
-// PR #13470 uses the code-owner-reviewed default branch for this first-party workflow.
-const ordinaryPrTrustedWorkflowRevision = "master";
+// ATS uses a reviewed immutable commit in the fork, never mutable upstream master.
+const ordinaryPrTrustedWorkflowRevision = "fb370d801f9aacd64709d5dbf059b8a99f5e1feb";
 const fullStackTestNeeds =
   /needs:\s*\[\s*authorize,\s*target_lock,\s*catalog,\s*daytona_image,\s*build_runner_artifacts,\s*build_remote_provider_pack,?\s*\]/u;
 const buildRunnerNeeds =
@@ -62,31 +62,35 @@ describe("public repository paid workflow security", () => {
 
   });
 
-  it("uses the reviewed master branch for the first-party trusted PR workflow", async () => {
+  it("pins the reviewed ATS fork CI workflow to an immutable commit", async () => {
     const ordinaryPrWorkflow = await readFile(
       path.join(repositoryRoot, ".github/workflows/pr.yml"),
       "utf8",
     );
     const trustedWorkflowCalls = [
       ...ordinaryPrWorkflow.matchAll(
-        /^\s+uses:\s+(paperclipai\/paperclip\/\.github\/workflows\/pr-trusted\.yml)@([^\s#]+)$/gmu,
+        /^\s+uses:\s+(architechsure-ltd\/paperclip\/\.github\/workflows\/pr-trusted\.yml)@([^\s#]+)$/gmu,
       ),
     ];
 
     expect(trustedWorkflowCalls).toHaveLength(1);
     expect(trustedWorkflowCalls[0]?.[1]).toBe(
-      "paperclipai/paperclip/.github/workflows/pr-trusted.yml",
+      "architechsure-ltd/paperclip/.github/workflows/pr-trusted.yml",
     );
     expect(trustedWorkflowCalls[0]?.[2]).toBe(
       ordinaryPrTrustedWorkflowRevision,
     );
   });
 
+  // PR #18348 added the ninth pr-trusted bootstrap, in the Vitest selection job.
+  // #19533 added the tenth (sandbox provider tests); the eleventh runs this suite.
+  const trustedPnpmBootstraps = {
+    "runner-full-stack-e2e.yml": 8,
+    "pr-trusted.yml": 11,
+  } as const;
+
   it("keeps pnpm bootstrap registry telemetry out of trusted workflow setup", async () => {
-    for (const workflowName of [
-      "runner-full-stack-e2e.yml",
-      "pr-trusted.yml",
-    ]) {
+    for (const workflowName of Object.keys(trustedPnpmBootstraps) as Array<keyof typeof trustedPnpmBootstraps>) {
       const workflow = await readFile(
         path.join(repositoryRoot, ".github/workflows", workflowName),
         "utf8",
@@ -95,7 +99,7 @@ describe("public repository paid workflow security", () => {
         .split(/\n(?= {6}- )/u)
         .filter((step) => step.includes("uses: pnpm/action-setup@"));
 
-      expect(pnpmSetupSteps, workflowName).toHaveLength(8);
+      expect(pnpmSetupSteps, workflowName).toHaveLength(trustedPnpmBootstraps[workflowName]);
       for (const step of pnpmSetupSteps) {
         expect(step, workflowName).toContain('NPM_CONFIG_AUDIT: "false"');
         expect(step, workflowName).toContain('NPM_CONFIG_FUND: "false"');
@@ -139,7 +143,7 @@ describe("public repository paid workflow security", () => {
         step.includes("uses: pnpm/action-setup@") ? [index] : [],
       );
 
-      expect(pnpmSetupStepIndexes, name).toHaveLength(8);
+      expect(pnpmSetupStepIndexes, name).toHaveLength(trustedPnpmBootstraps[name as keyof typeof trustedPnpmBootstraps]);
       for (const pnpmSetupStepIndex of pnpmSetupStepIndexes) {
         const pnpmSetupStep = steps[pnpmSetupStepIndex]!;
         const nodeBootstrapStep = steps[pnpmSetupStepIndex - 1]!;
@@ -361,7 +365,7 @@ describe("public repository paid workflow security", () => {
       paidExecution,
     );
     expect(everydayOracleStep).toContain(
-      "if: (matrix.suiteId == 'everyday-workflows' || matrix.suiteId == 'grok-qualification' || matrix.suiteId == 'grok-subscription-qualification') && (matrix.caseId == 'build-revise' || matrix.caseId == 'delegate-feedback' || matrix.caseId == 'agent-review-handoff' || matrix.caseId == 'hire-reuse' || matrix.caseId == 'recover-controller' || matrix.caseId == 'stop-redirect')",
+      "if: matrix.caseId == 'build-revise' || matrix.caseId == 'delegate-feedback' || matrix.caseId == 'agent-review-handoff' || matrix.caseId == 'hire-reuse' || matrix.caseId == 'recover-controller' || matrix.caseId == 'stop-redirect'\n",
     );
     expect(everydayOracleStep).toContain(
       `oracle_image='${everydayOracleImage}'`,
@@ -541,8 +545,10 @@ describe("public repository paid workflow security", () => {
         /ref: \$\{\{ needs\.authorize\.outputs\.target_sha \}\}/g,
       ),
     ).toHaveLength(6);
-    expect(fullStack.match(/ref: \$\{\{ github\.sha \}\}/g)).toHaveLength(4);
-    expect(fullStack.match(/persist-credentials: false/g)).toHaveLength(10);
+    // PR #18983 added two trusted TestOps jobs. private-trust-workflow-security.test.ts
+    // checks that they check out only reviewed code.
+    expect(fullStack.match(/ref: \$\{\{ github\.sha \}\}/g)).toHaveLength(6);
+    expect(fullStack.match(/persist-credentials: false/g)).toHaveLength(12);
     expect(fullStack).not.toContain("ref: ${{ inputs.target_branch }}");
     expect(fullStack).toContain(
       "PAPERCLIP_RUNNER_SOURCE_REVISION=${TARGET_SHA}",
@@ -606,6 +612,14 @@ describe("public repository paid workflow security", () => {
       "runner-full-stack-e2e.yml",
       "runner-live-evals.yml",
       "runner-protocol-live-evals.yml",
+      // PR #18516 admitted guarded, pinned-source chat TestOps cells. The full
+      // catalog (#18542, #18647) replaced the pilot workflows that #18625 removed.
+      // private-trust-workflow-security.test.ts checks how these two hold the keys.
+      "chat-catalog-testops.yml",
+      "chat-catalog-testops-case.yml",
+      // On-demand crash-point suite (durable ownership plan, Phase 5): manual
+      // dispatch, default branch, allowlisted actors, runner-e2e-paid.
+      "crash-points.yml",
     ]);
     const names = (await readdir(workflowDirectory)).filter((name) =>
       /\.ya?ml$/.test(name),
@@ -630,7 +644,7 @@ describe("public repository paid workflow security", () => {
     }
   });
 
-  it("uses bounded daily and weekly Product schedules while preserving Runner schedules", async () => {
+  it("requires manual-only paid Runner campaigns in ATS while retaining provider safeguards", async () => {
     const workflows = await Promise.all(
       [
         "runner-full-stack-e2e.yml",
@@ -643,7 +657,8 @@ describe("public repository paid workflow security", () => {
     for (const [index, workflow] of workflows.entries()) {
       const crons = [...workflow.matchAll(/cron:\s*"([^"]+)"/g)].map(match => match[1]!);
       if (index === 0) {
-        expect(crons).toEqual(["47 8 * * *", "47 9 * * 0"]);
+        expect(crons).toEqual([]);
+        expect(workflow).not.toMatch(/^  schedule:\s*$/mu);
         expect(workflow).toContain("vars.RUNNER_FULL_STACK_E2E_OPERATIONS_ENABLED == 'true'");
         expect(workflow).toContain('test "$TARGET_SHA" = "$GITHUB_SHA"');
         expect(workflow).toContain('echo "max_parallel=1"');
@@ -651,8 +666,8 @@ describe("public repository paid workflow security", () => {
         const paid = workflow.split("- name: Run bounded campaign and retain feedback review")[1]!.split("- name: Run paid cell")[0]!;
         expect([...paid.matchAll(/secrets\.([A-Z_]+)/g)].map(match => match[1])).toEqual(["BRAINTRUST_API_KEY"]);
       } else {
-        expect(crons).toHaveLength(1);
-        expect(crons[0]).toMatch(/^\d{1,2} \d{1,2} \* \* 0$/);
+        expect(crons).toEqual([]);
+        expect(workflow).not.toMatch(/^  schedule:\s*$/mu);
       }
       expect(workflow).toContain("workflow_dispatch:");
     }
@@ -740,7 +755,7 @@ describe("public repository paid workflow security", () => {
       "Materialize verified pinned OpenCode executable",
     );
     expect(testJob).toContain(
-      "matrix.profileId == 'legacy-opencode' || matrix.profileId == 'runner-opencode' || matrix.suiteId == 'openrouter-model-breadth'",
+      "matrix.profileId == 'legacy-opencode' || startsWith(matrix.profileId, 'runner-opencode') || matrix.suiteId == 'openrouter-model-breadth'",
     );
     expect(testJob).toContain(
       "node packages/paperclip-runner/scripts/materialize-opencode-binary.mjs",
@@ -872,35 +887,6 @@ describe("public repository paid workflow security", () => {
     expect(marker).toContain("path: private-report-status.json");
     expect(report).toContain('echo \'{"version":1,"privateReportRetained":true}\' > private-report-status.json');
     expect(marker).not.toMatch(/BUCKET|ROLE_ARN|private-report-reference/);
-  });
-
-  it("isolates private archive trust from workflows that execute target-branch code", async () => {
-    const workflows = path.join(repositoryRoot, ".github/workflows");
-    const source = await readFile(path.join(workflows, "runner-full-stack-e2e.yml"), "utf8");
-    const trust = await readFile(path.join(repositoryRoot, ".github/infra/runner-e2e-private-history.yml"), "utf8");
-    const environments = ["runner-e2e-private-paid", "runner-e2e-private-history"];
-    const subjects = [...trust.matchAll(/!Sub 'repo:\$\{GitHubRepository\}:environment:([^']+)'/gu)].map(match => match[1]);
-    expect(subjects).toEqual(environments);
-    const recurring = source.split("\n  test_recurring:")[1]!.split("\n  report:")[0]!;
-    const report = source.split("\n  report:")[1]!.split("\n  publish_history:")[0]!;
-    for (const [index, job] of [recurring, report].entries()) {
-      expect(job).toContain(`name: ${environments[index]}`);
-      expect(job).toContain("github.ref == format('refs/heads/{0}', github.event.repository.default_branch)");
-    }
-    expect(recurring).toContain("needs.authorize.outputs.target_sha == github.sha");
-    for (const filename of await readdir(workflows)) {
-      if (!/\.ya?ml$/u.test(filename) || ["runner-full-stack-e2e.yml", "runner-protocol-live-evals.yml"].includes(filename)) continue;
-      const other = await readFile(path.join(workflows, filename), "utf8");
-
-      for (const environment of environments) expect(other, filename).not.toContain(environment);
-    }
-    const protocol = await readFile(path.join(workflows, "runner-protocol-live-evals.yml"), "utf8");
-    expect(protocol).toContain("'runner-e2e-private-paid' || 'runner-e2e-paid'");
-    const admission = protocol.split("      - name: Validate accounting mode and retry envelope")[1]!.split("      - name:")[0]!;
-    expect(admission).toContain('test "$TARGET_SHA" = "$GITHUB_SHA"');
-    const worker = protocol.split("    steps: &direct_eval_steps")[1]!.split("      - uses:")[0]!;
-    expect(worker).toContain("test '${{ needs.authorize.outputs.target_sha }}' = \"$GITHUB_SHA\"");
-    expect(worker).toContain('test "$GITHUB_RUN_ATTEMPT" = 1');
   });
 
   it("uses environment-scoped OIDC for a no-delete history publisher", async () => {

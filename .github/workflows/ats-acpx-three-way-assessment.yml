@@ -1,0 +1,96 @@
+name: ATS ACPX Three-Way Assessment
+
+# Read-only package-level conflict diagnosis; no push, release, deployment, or credentials.
+on:
+  push:
+    branches:
+      - ats/upstream-2026-1117-integration
+    paths:
+      - .github/workflows/ats-acpx-three-way-assessment.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout pinned integration source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Node 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Test each ACPX patch independently and perform a source-level three-way merge
+        shell: bash
+        env:
+          ATS_SHA: 96a712e1968be89701ec7fc9f5ae452dce081914
+          UPSTREAM_SHA: c0f132898d2a2677312d8c72096187b27a3d9a38
+        run: |
+          set -euo pipefail
+          test "$(git merge-base "$UPSTREAM_SHA" HEAD)" = "$UPSTREAM_SHA"
+          git cat-file -e "$ATS_SHA:patches/acpx@0.13.1.patch"
+          test -f patches/acpx@0.13.1.patch
+          work="$(mktemp -d)"
+          echo "Package-level workdir: temporary runner storage"
+          git show "$ATS_SHA:patches/acpx@0.13.1.patch" > "$work/ats.patch"
+          cp patches/acpx@0.13.1.patch "$work/upstream.patch"
+          (cd "$work" && npm pack acpx@0.13.1 --ignore-scripts --silent)
+          mkdir -p "$work/original" "$work/repo"
+          tar -xzf "$work"/acpx-0.13.1.tgz -C "$work/original"
+          cp -a "$work/original/package/." "$work/repo/"
+          cd "$work/repo"
+          git init -q -b base
+          git config user.name "ATS temporary verifier"
+          git config user.email "ats-acpx-verifier@users.noreply.github.com"
+          git add -A && git commit -qm 'Exact npm acpx@0.13.1 base'
+          git branch ats
+          git switch -qc upstream
+          echo "=== VERIFY UPSTREAM PATCH ==="
+          git apply --check "$work/upstream.patch"
+          git apply "$work/upstream.patch"
+          git add -A && git commit -qm 'Paperclip upstream v2026.1117.0 ACPX patch'
+          git switch -q ats
+          echo "=== VERIFY ATS PATCH ==="
+          git apply --check "$work/ats.patch"
+          git apply "$work/ats.patch"
+          git add -A && git commit -qm 'ATS PR11 owned process groups and existing patch'
+          git switch -q upstream
+          set +e
+          git merge --no-commit --no-ff ats > "$work/merge.log" 2>&1
+          result=$?
+          set -e
+          cat "$work/merge.log"
+          if [ "$result" -eq 0 ]; then
+            echo "ACPX SOURCE MERGE: CLEAN (not committed)"
+            git diff --cached --stat
+            echo "### ACPX patch verification" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Upstream patch: applies cleanly to acpx@0.13.1" >> "$GITHUB_STEP_SUMMARY"
+            echo "- ATS patch: applies cleanly to acpx@0.13.1" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Three-way merge: clean without manual source conflicts" >> "$GITHUB_STEP_SUMMARY"
+          elif [ -n "$(git ls-files -u)" ]; then
+            echo "ACPX SOURCE MERGE: CONFLICTS (not committed)"
+            echo '### ACPX patch verification' >> "$GITHUB_STEP_SUMMARY"
+            echo '- Upstream patch: applies cleanly to acpx@0.13.1' >> "$GITHUB_STEP_SUMMARY"
+            echo '- ATS patch: applies cleanly to acpx@0.13.1' >> "$GITHUB_STEP_SUMMARY"
+            echo '- Source-level merge needs manual reconciliation:' >> "$GITHUB_STEP_SUMMARY"
+            git diff --name-only --diff-filter=U | while read -r file; do
+              echo "CONFLICT FILE: $file"
+              echo "- \`$file\`" >> "$GITHUB_STEP_SUMMARY"
+              awk '/^<<<<<<< / {inside=1; n++; print "===== HUNK " n " ====="} inside {print NR ":" $0} /^>>>>>>> / {inside=0; print "===== END HUNK ====="}' "$file"
+            done
+          else
+            echo "::error::ACPX source merge failed without conflicts"
+            exit "$result"
+          fi
+          echo "=== OWNED PROCESS-GROUP FEATURE VERIFICATION ==="
+          git show ats:dist/owned-process-group.js | grep -E 'export function (ownProcessGroup|processGroupId|closeOwnedProcessGroup)'
+          echo "Upstream acpx patch file count: $(grep -c '^diff --git ' "$work/upstream.patch")"
+          echo "ATS acpx patch file count: $(grep -c '^diff --git ' "$work/ats.patch")"
+          echo 'No repository files or GitHub branches were changed by this test.'
