@@ -1,0 +1,53 @@
+name: ATS PR16 protected-base trust probe
+
+on:
+  push:
+    branches:
+      - ats/upstream-2026-1117-integration
+    paths:
+      - .github/workflows/ats-pr16-policy-authority-smoke.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          repository: architechsure-ltd/paperclip
+          ref: 08df97a5f3c8821ebeb9a410a1636886fd10d9ff
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Unit and rejection tests for the trusted lockfile exception
+        run: |
+          set -euo pipefail
+          node --test .github/scripts/tests/ats-reviewed-lock.test.mjs
+      - name: Exact PR15 authorisation and adversarial identities
+        env:
+          PR_NUMBER: "15"
+          PR_AUTHOR: vroommm
+          HEAD_REPO: architechsure-ltd/paperclip
+          HEAD_REF: ats/upstream-2026-1117-review
+          HEAD_SHA: 04d8ba8999057ee68ede77423662e1a9d5ed60c4
+          BASE_SHA: 96a712e1968be89701ec7fc9f5ae452dce081914
+        run: |
+          set -euo pipefail
+          git cat-file -e "$HEAD_SHA^{commit}"
+          node .github/scripts/ats-reviewed-lock.mjs
+          if PR_NUMBER=16 node .github/scripts/ats-reviewed-lock.mjs; then
+            echo 'ERROR: unreviewed PR was admitted'
+            exit 1
+          fi
+          if HEAD_REF=chore/refresh-lockfile node .github/scripts/ats-reviewed-lock.mjs; then
+            echo 'ERROR: unreviewed branch was admitted'
+            exit 1
+          fi
+          echo 'Exact trust and both fail-closed probes PASS'
