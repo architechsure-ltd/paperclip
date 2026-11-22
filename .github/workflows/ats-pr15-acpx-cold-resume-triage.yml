@@ -21,9 +21,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - candidate: upstream-v2026.1117.0
-            repository: paperclipai/paperclip
-            sha: c0f132898d2a2677312d8c72096187b27a3d9a38
           - candidate: ATS-PR15
             repository: architechsure-ltd/paperclip
             sha: 3b03d92b20460c961a798c1ce0b69352108f53fe
@@ -52,6 +49,18 @@ jobs:
           pnpm install --frozen-lockfile
           pnpm run preflight:workspace-links
           pnpm --filter @paperclipai/plugin-sdk ensure-build-deps
+      - name: Expose mock-peer failure status and wire sequence (temporary checkout only)
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('packages/paperclip-runner/src/drivers/acpx/claude-effort.test.ts')
+          s=p.read_text()
+          old='    expect(result.status).toBe("completed");'
+          assert s.count(old)==1
+          s=s.replace(old,'    console.log("ATS_COLD_RESUME_DIAGNOSTIC", JSON.stringify({result, wire}));\\n'+old)
+          s=s.replace(');\\n    expect(result.status)', ');\n    expect(result.status)')
+          p.write_text(s)
+          PY
       - name: Reproduce provider-free Claude cold-resume scenario
         run: |
           set -euo pipefail
