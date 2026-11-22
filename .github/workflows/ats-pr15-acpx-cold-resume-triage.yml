@@ -53,13 +53,12 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('packages/paperclip-runner/src/drivers/acpx/claude-effort.test.ts')
-          s=p.read_text()
-          old='    expect(result.status).toBe("completed");'
-          assert s.count(old)==1
-          s=s.replace(old,'    console.log("ATS_COLD_RESUME_DIAGNOSTIC", JSON.stringify({result, wire}));\\n'+old)
-          s=s.replace(');\\n    expect(result.status)', ');\n    expect(result.status)')
-          p.write_text(s)
+          p = Path('packages/paperclip-runner/src/drivers/acpx/claude-effort.test.ts')
+          s = p.read_text()
+          old = '    expect(result.status).toBe("completed");'
+          assert s.count(old) == 1
+          log = '    console.log("ATS_COLD_RESUME_DIAGNOSTIC", JSON.stringify({result, wire}));'
+          p.write_text(s.replace(old, log + chr(10) + old))
           PY
       - name: Reproduce provider-free Claude cold-resume scenario
         run: |
