@@ -23,7 +23,7 @@ jobs:
         include:
           - candidate: ATS-PR15
             repository: architechsure-ltd/paperclip
-            sha: 3d5567fb16a1158d55db772a0c4594f2fda40ab9
+            sha: 04d8ba8999057ee68ede77423662e1a9d5ed60c4
     env:
       OPENAI_BASE_URL: http://127.0.0.1:9
       ANTHROPIC_BASE_URL: http://127.0.0.1:9
