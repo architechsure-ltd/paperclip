@@ -1,0 +1,60 @@
+name: ATS PR15 ACPX cold-resume triage
+
+# Read-only baseline comparison; mock ACP peer, no live provider, no writes beyond the temporary runner.
+on:
+  push:
+    branches:
+      - ats/upstream-2026-1117-integration
+    paths:
+      - .github/workflows/ats-pr15-acpx-cold-resume-triage.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cold-resume:
+    name: Claude cold resume / ${{ matrix.candidate }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - candidate: upstream-v2026.1117.0
+            repository: paperclipai/paperclip
+            sha: c0f132898d2a2677312d8c72096187b27a3d9a38
+          - candidate: ATS-PR15
+            repository: architechsure-ltd/paperclip
+            sha: 3b03d92b20460c961a798c1ce0b69352108f53fe
+    env:
+      OPENAI_BASE_URL: http://127.0.0.1:9
+      ANTHROPIC_BASE_URL: http://127.0.0.1:9
+      GOOGLE_GENERATIVE_AI_BASE_URL: http://127.0.0.1:9
+      PAPERCLIP_TEST_POSTGRES_TEMPLATE: "0"
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # node 24
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 9.15.4
+          run_install: false
+      - name: Frozen install and workspace prerequisites
+        run: |
+          set -euo pipefail
+          pnpm install --frozen-lockfile
+          pnpm run preflight:workspace-links
+          pnpm --filter @paperclipai/plugin-sdk ensure-build-deps
+      - name: Reproduce provider-free Claude cold-resume scenario
+        run: |
+          set -euo pipefail
+          pnpm --filter @paperclipai/paperclip-runner exec vitest run src/drivers/acpx/claude-effort.test.ts \
+            -t "actual ACPX cold cross-process resume selects the bound effort again before the prompt" \
+            --maxWorkers=1
