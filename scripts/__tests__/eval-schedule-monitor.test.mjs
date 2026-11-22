@@ -189,8 +189,9 @@ test("rejects valid JSON with malformed history without querying or overwriting 
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test("workflow titles carry the literal schedule used to distinguish daily and weekly runs", async () => {
+test("workflow remains manual-only while keeping an informative run title", async () => {
   const text = await readFile(new URL("../../.github/workflows/runner-full-stack-e2e.yml", import.meta.url), "utf8");
   assert.ok(text.includes("run-name: Runner Full-Stack E2E / ${{ github.event.schedule || inputs.cadence || 'manual' }}"));
-  for (const cron of Object.values(MONITORED_SCHEDULES)) assert.ok(text.includes(`cron: "${cron}"`));
+  for (const cron of Object.values(MONITORED_SCHEDULES)) assert.ok(!text.includes(`cron: "${cron}"`));
+  assert.doesNotMatch(text, /^  schedule:/m);
 });
