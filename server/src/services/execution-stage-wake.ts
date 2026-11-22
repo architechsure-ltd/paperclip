@@ -1,6 +1,7 @@
 import { legacyExecutionNeedsReconciliationWithEvidence } from "./legacy-execution-recovery.js";
 import { issueRecoveryActionService } from "./issue-recovery-actions.js";
 import { hasPendingRunCleanup } from "./execution-blocker.js";
+import { admittedHistoricalSettlement } from "./historical-settlement-store.js";
 import { hasStoppedLocalProcessTree } from "./heartbeat/process-settlement.js";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { agentWakeupRequests, companies, environmentLeases, heartbeatRuns, issueRecoveryActions, issues, type Db } from "@paperclipai/db";
@@ -66,7 +67,8 @@ export async function executionStageWakeReadiness(db: Db, issue: Issue, wake: Wa
       eq(environmentLeases.companyId, issue.companyId), eq(environmentLeases.heartbeatRunId, source.id),
     ));
     if (source.processPid && !sourceLeases.some(lease => lease.provider && lease.provider !== "local") &&
-        !hasStoppedLocalProcessTree(source)) return "waiting";
+        !hasStoppedLocalProcessTree(source) &&
+        !await admittedHistoricalSettlement(source, process.env.PAPERCLIP_HISTORICAL_SETTLEMENT_ADMISSIONS)) return "waiting";
   }
   const [live] = await db.select({ id: heartbeatRuns.id }).from(heartbeatRuns).where(and(
     eq(heartbeatRuns.companyId, issue.companyId),

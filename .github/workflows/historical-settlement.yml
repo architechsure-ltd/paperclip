@@ -1,0 +1,102 @@
+name: Historical settlement verification
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [master]
+    paths:
+      - 'server/src/services/historical-settlement*'
+      - 'server/src/services/execution-stage-wake.ts'
+      - 'server/src/__tests__/execution-stage-wake.test.ts'
+      - '.github/workflows/historical-settlement.yml'
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86
+        with:
+          version: 9.15.4
+          run_install: false
+      - name: Prepare toolchain and evidence
+        run: |
+          mkdir -p verification-evidence
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gcc libc6-dev pkg-config
+          (cd packages/paperclip-runner && rustup show)
+          toolchain=$(cd packages/paperclip-runner && rustup show active-toolchain | awk '{print $1}')
+          echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+          {
+            git rev-parse HEAD
+            printf 'run=%s attempt=%s runner=%s os=%s arch=%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$RUNNER_NAME" "$RUNNER_OS" "$RUNNER_ARCH"
+            cat /etc/os-release
+            node --version
+            pnpm --version
+            (cd packages/paperclip-runner && rustc --version && cargo --version)
+            cc --version
+          } | tee verification-evidence/identity.log
+      - name: Install dependencies
+        run: |
+          set -o pipefail
+          pnpm install --resolution-only --ignore-scripts --no-frozen-lockfile 2>&1 | tee verification-evidence/resolution.log
+          pnpm install --frozen-lockfile 2>&1 | tee verification-evidence/install.log
+          git diff -- pnpm-lock.yaml > verification-evidence/lockfile.diff
+      - name: Prepare regression package prerequisites
+        run: |
+          pnpm run preflight:workspace-links
+          pnpm --filter @paperclipai/plugin-sdk ensure-build-deps
+      - name: Retained wake regression tests
+        id: tests
+        continue-on-error: true
+        env:
+          PAPERCLIP_TEST_POSTGRES_TEMPLATE: "0"
+          OPENAI_BASE_URL: http://127.0.0.1:9
+          ANTHROPIC_BASE_URL: http://127.0.0.1:9
+          GOOGLE_GENERATIVE_AI_BASE_URL: http://127.0.0.1:9
+        run: |
+          set -o pipefail
+          node --import ./server/node_modules/tsx/dist/loader.mjs --test server/src/__tests__/historical-settlement.test.mjs server/src/__tests__/historical-settlement-store.test.mjs 2>&1 | tee verification-evidence/verifier-tests.log
+          pnpm exec vitest run server/src/__tests__/execution-stage-wake.test.ts --maxWorkers=1 2>&1 | tee verification-evidence/tests.log
+      - name: Full typecheck
+        id: typecheck
+        continue-on-error: true
+        run: |
+          set +e
+          set -o pipefail
+          pnpm typecheck 2>&1 | tee verification-evidence/typecheck.log
+          result=$?
+          echo "$result" > verification-evidence/typecheck.exit
+          exit "$result"
+      - name: Full build
+        id: build
+        continue-on-error: true
+        run: |
+          set +e
+          set -o pipefail
+          pnpm build 2>&1 | tee verification-evidence/build.log
+          result=$?
+          echo "$result" > verification-evidence/build.exit
+          exit "$result"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: historical-settlement-verification-${{ github.run_id }}-${{ github.run_attempt }}
+          path: verification-evidence/
+          retention-days: 14
+          if-no-files-found: error
+      - name: Enforce both gates
+        if: always()
+        env:
+          TYPECHECK: ${{ steps.typecheck.outcome }}
+          TESTS: ${{ steps.tests.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+        run: test "$TYPECHECK" = success && test "$BUILD" = success && test "$TESTS" = success

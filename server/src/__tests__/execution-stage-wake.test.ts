@@ -1,3 +1,7 @@
+import { generateKeyPairSync, sign } from "node:crypto";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createPostgresRunDispatchAdapter } from "../modules/run-dispatch/adapters/postgres.js";
 import { remoteTerminationReceipt } from "../services/remote-execution-termination.js";
 import { randomUUID } from "node:crypto";
@@ -130,4 +134,25 @@ describe("durable policy stage wake", () => {
     await expect(validateExecutionReconciliation({ db, companyId: f.companyId, issueId: f.issue.id, agentId: f.reviewer,
       sourceRunId: stopped.id, decision: { runId: stopped.id, providerStopped: true, actionOutcome: "completed", outcomeEvidence: "Owner verified the submitted implementation and all external effects." }, reviewHandoverOnly: true })).resolves.toMatchObject({ id: stopped.id });
   });
+  it("admits only signed exact historical settlement through the original saved wake", async () => {
+    const f = await seed(); await release(f);
+    const start = new Date(Date.now()-60000), finish = new Date(Date.now()-30000);
+    await db.update(heartbeatRuns).set({processPid:2147483646,processGroupId:null,processStartedAt:start,finishedAt:finish}).where(eq(heartbeatRuns.id,f.source.id));
+    const dir=mkdtempSync(join(tmpdir(),"arc127-test-")), path=join(dir,"admission.json");
+    const previous=process.env.PAPERCLIP_HISTORICAL_SETTLEMENT_ADMISSIONS;
+    const {privateKey,publicKey}=generateKeyPairSync("ed25519");
+    const evidence={schema:"paperclip.historical-local-settlement.v1",companyId:f.companyId,issueId:f.issue.id,runId:f.source.id,processPid:2147483646,processGroupId:null,processStartedAt:start.toISOString(),observedAt:new Date(Date.now()-1000).toISOString(),expiresAt:new Date(Date.now()+120000).toISOString(),evidenceId:"synthetic-test-only",hostIdentity:"fixture-host",method:"independently-verified-process-tree-termination",state:"terminated-with-all-descendants"};
+    const admit=(changes={})=>{const payload=JSON.stringify({...evidence,...changes});writeFileSync(path,JSON.stringify({schema:"paperclip.historical-local-admissions.v1",envelopes:{[f.source.id]:{keyId:"fixture",payload,signature:sign(null,Buffer.from(payload),privateKey).toString("base64")}},trust:{keys:{fixture:{publicKey:publicKey.export({type:"spki",format:"pem"}),role:"independent-termination-verifier"}},maxAgeMs:300000,approvedEvidenceIds:["synthetic-test-only"],sourceHosts:{[f.source.id]:"fixture-host"}}}));};
+    try {
+      process.env.PAPERCLIP_HISTORICAL_SETTLEMENT_ADMISSIONS=path;
+      expect(await executionStageWakeReadiness(db,f.issue,f.wake)).toBe("waiting");
+      admit({runId:randomUUID()});expect(await executionStageWakeReadiness(db,f.issue,f.wake)).toBe("waiting");
+      admit({expiresAt:new Date(Date.now()-1).toISOString()});expect(await executionStageWakeReadiness(db,f.issue,f.wake)).toBe("waiting");
+      admit();expect(await executionStageWakeReadiness(db,f.issue,f.wake)).toBe("ready");
+      const delivered:string[]=[];await resumeExecutionStageWakes(db,async (_agent,_options,id)=>{delivered.push(id!);},{companyId:f.companyId});
+      expect(delivered).toEqual([f.wake.id]);
+      const wakes=await db.select().from(agentWakeupRequests).where(eq(agentWakeupRequests.companyId,f.companyId));expect(wakes).toHaveLength(1);expect(wakes[0].id).toBe(f.wake.id);
+    } finally { if(previous===undefined)delete process.env.PAPERCLIP_HISTORICAL_SETTLEMENT_ADMISSIONS;else process.env.PAPERCLIP_HISTORICAL_SETTLEMENT_ADMISSIONS=previous;rmSync(dir,{recursive:true,force:true}); }
+  });
+
 });
