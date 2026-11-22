@@ -644,7 +644,7 @@ describe("public repository paid workflow security", () => {
     }
   });
 
-  it("uses bounded daily and weekly Product schedules while preserving Runner schedules", async () => {
+  it("requires manual-only paid Runner campaigns in ATS while retaining provider safeguards", async () => {
     const workflows = await Promise.all(
       [
         "runner-full-stack-e2e.yml",
@@ -657,7 +657,8 @@ describe("public repository paid workflow security", () => {
     for (const [index, workflow] of workflows.entries()) {
       const crons = [...workflow.matchAll(/cron:\s*"([^"]+)"/g)].map(match => match[1]!);
       if (index === 0) {
-        expect(crons).toEqual(["47 8 * * *", "47 9 * * 0"]);
+        expect(crons).toEqual([]);
+        expect(workflow).not.toMatch(/^  schedule:\s*$/mu);
         expect(workflow).toContain("vars.RUNNER_FULL_STACK_E2E_OPERATIONS_ENABLED == 'true'");
         expect(workflow).toContain('test "$TARGET_SHA" = "$GITHUB_SHA"');
         expect(workflow).toContain('echo "max_parallel=1"');
@@ -665,8 +666,8 @@ describe("public repository paid workflow security", () => {
         const paid = workflow.split("- name: Run bounded campaign and retain feedback review")[1]!.split("- name: Run paid cell")[0]!;
         expect([...paid.matchAll(/secrets\.([A-Z_]+)/g)].map(match => match[1])).toEqual(["BRAINTRUST_API_KEY"]);
       } else {
-        expect(crons).toHaveLength(1);
-        expect(crons[0]).toMatch(/^\d{1,2} \d{1,2} \* \* 0$/);
+        expect(crons).toEqual([]);
+        expect(workflow).not.toMatch(/^  schedule:\s*$/mu);
       }
       expect(workflow).toContain("workflow_dispatch:");
     }

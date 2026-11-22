@@ -313,8 +313,8 @@ test('the workflows expose the reliability plan without new provider or reportin
   const full = parse(await readFile(new URL('../../.github/workflows/runner-full-stack-e2e.yml', import.meta.url), 'utf8'));
   assert.deepEqual(full.on.workflow_dispatch.inputs.testops_plan.options, ['product-regression', 'reliability']);
   assert.equal(full.on.workflow_dispatch.inputs.testops_plan.default, 'product-regression');
-  // Not run per PR or on the bounded cron: only a TestOps launch or manual dispatch selects the plan.
-  assert.deepEqual(Object.keys(full.on).sort(), ['schedule', 'workflow_dispatch']);
+  // ATS forbids scheduled paid runs: only explicit dispatch selects a TestOps plan.
+  assert.deepEqual(Object.keys(full.on).sort(), ['workflow_dispatch']);
   const selectionStep = full.jobs.testops_selection.steps.find(step => step.id === 'selection');
   assert.equal(selectionStep.env.TESTOPS_PLAN, "${{ inputs.testops_plan || 'product-regression' }}");
   const testEnv = full.jobs.test.steps.flatMap(step => Object.entries(step.env ?? {}));

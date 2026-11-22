@@ -1,6 +1,6 @@
 {
-  "inputSha256": "5e2b012b50bb8b198384da4f5427c27acd948af405f89cde15bfa48bb10c0ad4",
-  "outputSha256": "2360d5e93876ce3cb6e810257d92d669ac2b109027b0e01af36f2048861648c0",
-  "patchSha256": "024c83574cedd67700979c11a36eb89a135fe22f90ac9890c28aaa059418e0a6",
-  "basis": "Generated with the trusted master lockfile refresh. Review this offline correction and its hashes with the dependency changes."
+  "inputSha256": "0198f72135faa2de005613443025407632f40401cc43f198cc8171346357bd7f",
+  "outputSha256": "6d293ddfbee41ce7f42575cc5e107e4e726616af52d363746c40220a152a334a",
+  "patchSha256": "17df3128c117c7d0c7b939d163ad73c1382f3bccd39669cdb3a5199c178689d7",
+  "basis": "ATS PR #15 owner-authorised and manually reviewed ACPX patch-only correction. Input is pinned PR head 3b03d92b20460c961a798c1ce0b69352108f53fe; output is reviewed correction ab04d40178cd546ace9e2e79714ba7bbda236a20. Frozen lockfile install, 21 Claude-effort tests and 7 process-lifecycle tests PASS in Actions run 44966592131. The separate base-branch trusted-writer policy remains mandatory; this evidence does not override it."
 }

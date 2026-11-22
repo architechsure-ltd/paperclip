@@ -1,13 +1,13 @@
 diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
-index 97cbf7b..851e65a 100644
+index 884de5a..41f6be2 100644
 --- a/pnpm-lock.yaml
 +++ b/pnpm-lock.yaml
 @@ -43,7 +43,7 @@ patchedDependencies:
      hash: 6st5fzvttegjv64llnfegwwpca
      path: patches/acpx@0.12.0.patch
    acpx@0.13.1:
--    hash: ujlgpkxl4mvt34bejc3uxyvthq
-+    hash: 25xv27loodfejozcsygclyiyau
+-    hash: znmbdzl4jxbijsedt3w4udsaem
++    hash: onyxieoypvlrqbhnfqqlcr6nve
      path: patches/acpx@0.13.1.patch
    embedded-postgres@18.1.0-beta.16:
      hash: 55uhvnotpqyiy37rn3pqpukhei
@@ -15,8 +15,8 @@ index 97cbf7b..851e65a 100644
          version: 0.160.0
        acpx:
          specifier: 0.13.1
--        version: 0.13.1(patch_hash=ujlgpkxl4mvt34bejc3uxyvthq)
-+        version: 0.13.1(patch_hash=25xv27loodfejozcsygclyiyau)
+-        version: 0.13.1(patch_hash=znmbdzl4jxbijsedt3w4udsaem)
++        version: 0.13.1(patch_hash=onyxieoypvlrqbhnfqqlcr6nve)
        ajv:
          specifier: ^8.20.0
          version: 8.20.0
@@ -24,8 +24,8 @@ index 97cbf7b..851e65a 100644
          version: 8.18.0
        acpx:
          specifier: 0.13.1
--        version: 0.13.1(patch_hash=ujlgpkxl4mvt34bejc3uxyvthq)
-+        version: 0.13.1(patch_hash=25xv27loodfejozcsygclyiyau)
+-        version: 0.13.1(patch_hash=znmbdzl4jxbijsedt3w4udsaem)
++        version: 0.13.1(patch_hash=onyxieoypvlrqbhnfqqlcr6nve)
        ai:
          specifier: 7.0.130
          version: 7.0.130(zod@4.6.7)
@@ -33,8 +33,8 @@ index 97cbf7b..851e65a 100644
        - bare-buffer
        - react-native-b4a
  
--  acpx@0.13.1(patch_hash=ujlgpkxl4mvt34bejc3uxyvthq):
-+  acpx@0.13.1(patch_hash=25xv27loodfejozcsygclyiyau):
+-  acpx@0.13.1(patch_hash=znmbdzl4jxbijsedt3w4udsaem):
++  acpx@0.13.1(patch_hash=onyxieoypvlrqbhnfqqlcr6nve):
      dependencies:
        '@agentclientprotocol/sdk': 1.4.0(zod@4.6.7)
        commander: 15.0.0

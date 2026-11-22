@@ -385,20 +385,20 @@ jobs:
           fallback() { echo 'plan=' >> "$GITHUB_OUTPUT"; exit 0; }
           [[ "$FULL_CI" == 'true' ]] || fallback
           [[ "$EVENT_HEAD_SHA" =~ ^[0-9a-f]{40}$ && "$EVENT_MERGE_SHA" =~ ^[0-9a-f]{40}$ ]] || fallback
-          trusted="$(gh api /repos/paperclipai/paperclip/git/ref/heads/master --jq .object.sha)" || fallback
+          trusted="92ec8fbe7c94a434fe2cf2b4bb3d0973946631df"
           [[ "$trusted" =~ ^[0-9a-f]{40}$ ]] || fallback
           directory="$(mktemp -d)"
           trap 'rm -rf "$directory"' EXIT
           for file in .github/scripts/ci-plan.mjs .github/scripts/ci-inputs.mjs .github/scripts/ci-diff.mjs .github/ci-task-matrix.json turbo.json; do
             gh api -H 'Accept: application/vnd.github.raw+json' \
-              "/repos/paperclipai/paperclip/contents/$file?ref=$trusted" \
+              "/repos/architechsure-ltd/paperclip/contents/$file?ref=$trusted" \
               > "$directory/${file##*/}" || fallback
           done
           # Read the exact tested merge and both parents. The event's base SHA can
           # lag behind its actual first parent. A bare tree diff has no API file cap.
           git init --bare "$directory/repository.git" >/dev/null || fallback
           git -C "$directory/repository.git" fetch --quiet --no-tags --filter=blob:none --depth=2 \
-            https://github.com/paperclipai/paperclip.git "$EVENT_MERGE_SHA" || fallback
+            https://github.com/architechsure-ltd/paperclip.git "$EVENT_MERGE_SHA" || fallback
           if [[ "$PROFILE_CI" == 'true' || "$FORCE_FULL_CI" == 'true' ]]; then
             export CI_FORCE_REASON='Full suite requested by label'
           elif [[ "$STACK_JSON" != 'null' && -n "$STACK_JSON" ]]; then
